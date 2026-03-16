@@ -12,9 +12,22 @@ export async function generateMetadata({ params }) {
 
   if (!doctor) return { title: 'Médecin introuvable' }
 
+  const { data: services } = await supabase
+    .from('services')
+    .select('name_fr')
+    .eq('specialty_id', doctor.specialty_id)
+    .limit(3)
+
+  const servicesText = services?.map(s => s.name_fr).join(', ')
+
   return {
     title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
-    description: `Consultez le profil de ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Adresse, téléphone et prise de rendez-vous.`,
+    description: `${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Adresse, téléphone et prise de rendez-vous en ligne.`,
+    openGraph: {
+      title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}`,
+      description: `Services: ${servicesText}. Consultez le profil complet.`,
+      type: 'website',
+    }
   }
 }
 
@@ -26,7 +39,8 @@ export default async function DoctorPage({ params }) {
     .select(`
       id, name_fr, slug, address, phone, rating, reviews_count,
       google_map_url, latitude, longitude, is_dentflow, is_verified,
-      specialties(name_fr, slug),
+      specialty_id, wilaya_id,
+      specialties(id, name_fr, slug),
       wilayas(name_fr, slug)
     `)
     .eq('slug', slug)
@@ -34,7 +48,11 @@ export default async function DoctorPage({ params }) {
 
   if (!doctor) notFound()
 
-  // أطباء مشابهون
+  const { data: services } = await supabase
+    .from('services')
+    .select('name_fr, slug')
+    .eq('specialty_id', doctor.specialty_id)
+
   const { data: similar } = await supabase
     .from('doctors')
     .select('id, name_fr, slug, rating, specialties(name_fr), wilayas(name_fr)')
@@ -45,7 +63,6 @@ export default async function DoctorPage({ params }) {
 
   const stars = Math.round(doctor.rating || 0)
 
-  // Schema JSON-LD للـ SEO
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Physician',
@@ -64,12 +81,22 @@ export default async function DoctorPage({ params }) {
       bestRating: 5,
       ratingCount: doctor.reviews_count || 1,
     } : undefined,
+    hasOfferCatalog: services?.length > 0 ? {
+      '@type': 'OfferCatalog',
+      name: `Services de ${doctor.specialties?.name_fr}`,
+      itemListElement: services.map(s => ({
+        '@type': 'Offer',
+        itemOffered: {
+          '@type': 'MedicalProcedure',
+          name: s.name_fr,
+        }
+      }))
+    } : undefined,
   }
 
   return (
     <main className="min-h-screen bg-gray-50">
 
-      {/* JSON-LD SEO */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -85,7 +112,7 @@ export default async function DoctorPage({ params }) {
       </header>
 
       {/* BREADCRUMB */}
-      <div className="max-w-4xl mx-auto px-4 py-3 text-sm text-gray-500 flex gap-2">
+      <div className="max-w-4xl mx-auto px-4 py-3 text-sm text-gray-500 flex gap-2 flex-wrap">
         <Link href="/" className="hover:text-blue-600">Accueil</Link>
         <span>›</span>
         <Link href={`/specialites/${doctor.specialties?.slug}`}
@@ -133,14 +160,11 @@ export default async function DoctorPage({ params }) {
                       ★
                     </span>
                   ))}
-                  <span className="text-gray-500 ml-1">
-                    {doctor.rating} / 5
-                  </span>
+                  <span className="text-gray-500 ml-1">{doctor.rating} / 5</span>
                 </div>
               </div>
             </div>
 
-            {/* INFOS */}
             <div className="mt-6 space-y-3 border-t pt-4">
               {doctor.wilayas && (
                 <div className="flex items-center gap-3 text-gray-600">
@@ -161,6 +185,24 @@ export default async function DoctorPage({ params }) {
               )}
             </div>
           </div>
+
+          {/* SERVICES */}
+          {services && services.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h2 className="font-bold text-gray-800 text-lg mb-4">
+                Nos Services
+              </h2>
+              <div className="grid grid-cols-2 gap-2">
+                {services.map(s => (
+                  <div key={s.slug}
+                    className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
+                    <span className="text-blue-500">✓</span>
+                    <span className="text-sm text-gray-700">{s.name_fr}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* CARTE MAPS */}
           {doctor.latitude && doctor.longitude && (
@@ -211,7 +253,6 @@ export default async function DoctorPage({ params }) {
         {/* SIDEBAR */}
         <div className="space-y-4">
 
-          {/* BOUTON RENDEZ-VOUS */}
           <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
             <h2 className="font-semibold text-gray-800 mb-4">Prendre rendez-vous</h2>
             {doctor.is_dentflow ? (
@@ -227,7 +268,6 @@ export default async function DoctorPage({ params }) {
             )}
           </div>
 
-          {/* INFOS RAPIDES */}
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <h2 className="font-semibold text-gray-800 mb-4">Informations</h2>
             <div className="space-y-2 text-sm">
@@ -246,10 +286,25 @@ export default async function DoctorPage({ params }) {
             </div>
           </div>
 
+          {services && services.length > 0 && (
+            <div className="bg-blue-50 rounded-2xl p-4">
+              <p className="text-sm text-blue-700 font-medium mb-2">
+                Mots-clés associés:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {services.map(s => (
+                  <span key={s.slug}
+                    className="text-xs bg-white text-blue-600 px-2 py-1 rounded-full border border-blue-200">
+                    {s.name_fr}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
-      {/* FOOTER */}
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
         <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
       </footer>
