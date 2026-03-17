@@ -193,10 +193,12 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {/* Localisation / Map */}
+         {/* Localisation / Map */}
           {doctor.latitude && doctor.longitude && (
             <div className="bg-white rounded-2xl shadow-sm p-4">
               <h2 className="font-semibold text-gray-800 mb-3">📍 Localisation</h2>
+              
+              {/* L'URL A ÉTÉ CORRIGÉE ICI 👇 */}
               <a 
                 href={`https://www.google.com/maps/search/?api=1&query=${doctor.latitude},${doctor.longitude}`}
                 target="_blank" 
@@ -211,6 +213,7 @@ export default async function DoctorPage({ params }) {
                   </span>
                 </div>
               </a>
+
               {doctor.google_map_url && (
                 <a href={doctor.google_map_url} target="_blank"
                   rel="noopener noreferrer"
