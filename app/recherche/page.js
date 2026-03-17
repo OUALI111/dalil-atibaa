@@ -59,7 +59,7 @@ async function getDoctors({ q, specialite, wilaya, page = 0 }) {
 
 if (q) {
   query = query.textSearch('search_vector', q, {
-    type: 'plain',
+    type: 'websearch',
     config: 'french'
   })
 }
