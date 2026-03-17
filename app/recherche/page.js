@@ -226,7 +226,76 @@ export default async function RecherchePage({ searchParams }) {
           </div>
         )}
       </div>
+{/* SEO CONTENT */}
+<div className="max-w-6xl mx-auto px-4 py-8">
+  <div className="bg-white rounded-2xl p-6 shadow-sm">
+    <h2 className="text-xl font-bold text-gray-800 mb-4">
+      {specialite && wilaya
+        ? `Trouver un ${specialite} à ${wilaya}`
+        : specialite
+        ? `Trouver un ${specialite} en Algérie`
+        : wilaya
+        ? `Médecins à ${wilaya}`
+        : 'Trouver un médecin en Algérie'}
+    </h2>
+    <p className="text-gray-600 mb-4">
+      {specialite && wilaya
+        ? `Consultez la liste complète des ${specialite} à ${wilaya}. Adresses, numéros de téléphone et avis patients disponibles sur Dalil Atibaa.`
+        : specialite
+        ? `Trouvez les meilleurs ${specialite} en Algérie. Notre annuaire recense tous les ${specialite} avec leurs coordonnées complètes.`
+        : wilaya
+        ? `Découvrez tous les médecins disponibles à ${wilaya}. Filtrez par spécialité pour trouver rapidement le médecin qu il vous faut.`
+        : `Dalil Atibaa recense plus de 1000 médecins dans les 58 wilayas d Algérie. Recherchez par spécialité, wilaya ou nom du médecin.`}
+    </p>
 
+    <h3 className="text-lg font-semibold text-gray-800 mb-3">
+      Questions fréquentes
+    </h3>
+
+    <div className="grid md:grid-cols-2 gap-4">
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-medium text-gray-700 mb-1">
+          Comment trouver un médecin rapidement ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Utilisez les filtres de recherche pour sélectionner votre wilaya
+          et spécialité. Les résultats sont triés par note pour vous aider
+          à choisir le meilleur médecin.
+        </p>
+      </div>
+
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-medium text-gray-700 mb-1">
+          Comment prendre rendez-vous ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Cliquez sur la fiche du médecin pour voir son numéro de téléphone
+          et prendre rendez-vous directement par appel.
+        </p>
+      </div>
+
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-medium text-gray-700 mb-1">
+          Les informations sont-elles à jour ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Nous mettons régulièrement à jour notre base de données pour garantir
+          des informations fiables sur chaque médecin référencé.
+        </p>
+      </div>
+
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-medium text-gray-700 mb-1">
+          Puis-je ajouter mon cabinet ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Oui, contactez-nous pour référencer votre cabinet médical sur
+          Dalil Atibaa et être visible par des milliers de patients.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
       {/* FOOTER */}
       <footer className="bg-gray-800 text-gray-400 py-6 text-center text-sm">
         © 2025 Dalil Atibaa

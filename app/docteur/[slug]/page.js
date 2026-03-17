@@ -277,7 +277,68 @@ export default async function DoctorPage({ params }) {
           )}
         </div>
       </div>
+{/* SEO CONTENT */}
+<div className="max-w-4xl mx-auto px-4 py-8">
+  <div className="bg-white rounded-2xl p-6 shadow-sm">
+    <h2 className="text-xl font-bold text-gray-800 mb-4">
+      {doctor.name_fr} - {doctor.specialties?.name_fr} à {doctor.wilayas?.name_fr}
+    </h2>
+    <p className="text-gray-600 mb-4">
+      {doctor.name_fr} est un {doctor.specialties?.name_fr} basé à {doctor.wilayas?.name_fr}, Algérie.
+      {doctor.address && ` Le cabinet est situé au ${doctor.address}.`}
+      {services && services.length > 0 && ` Les services proposés incluent: ${services.map(s => s.name_fr).join(', ')}.`}
+      {` Pour prendre rendez-vous, contactez directement le cabinet au ${doctor.phone || 'numéro indiqué'}.`}
+    </p>
 
+    <h3 className="text-lg font-semibold text-gray-800 mb-3">
+      Questions fréquentes
+    </h3>
+
+    <div className="space-y-4">
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-medium text-gray-700 mb-1">
+          Comment prendre rendez-vous avec {doctor.name_fr} ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Appelez directement au {doctor.phone || 'numéro indiqué sur la fiche'} pour prendre rendez-vous
+          avec {doctor.name_fr} à {doctor.wilayas?.name_fr}.
+        </p>
+      </div>
+
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-medium text-gray-700 mb-1">
+          Où se trouve le cabinet de {doctor.name_fr} ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          {doctor.name_fr} exerce à {doctor.wilayas?.name_fr}
+          {doctor.address && `, ${doctor.address}`}.
+          Utilisez le bouton Google Maps pour obtenir l itinéraire.
+        </p>
+      </div>
+
+      {services && services.length > 0 && (
+        <div className="bg-gray-50 rounded-xl p-4">
+          <p className="font-medium text-gray-700 mb-1">
+            Quels services propose {doctor.name_fr} ?
+          </p>
+          <p className="text-gray-500 text-sm">
+            {doctor.name_fr} propose les services suivants: {services.map(s => s.name_fr).join(', ')}.
+          </p>
+        </div>
+      )}
+
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-medium text-gray-700 mb-1">
+          Quelle est la note de {doctor.name_fr} ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          {doctor.name_fr} a une note de {doctor.rating}/5
+          basée sur les avis de patients sur Google Maps.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
         <p>2025 Dalil Atibaa - Annuaire des medecins en Algerie</p>
       </footer>
