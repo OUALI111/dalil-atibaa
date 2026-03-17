@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
+import { unstable_cache } from 'next/cache'
 
 export async function generateMetadata({ searchParams }) {
   const params = await searchParams
@@ -41,51 +42,66 @@ export async function generateMetadata({ searchParams }) {
   }
 }
 
-async function getDoctors({ q, specialite, wilaya, page = 0 }) {
-  const pageSize = 24
-  const from = page * pageSize
-  const to = from + pageSize - 1
+const getDoctors = unstable_cache(
+  async ({ q, specialite, wilaya, page = 0 }) => {
+    const pageSize = 24
+    const from = page * pageSize
+    const to = from + pageSize - 1
 
-  let query = supabase
-    .from('doctors')
-    .select(`
-      id, name_fr, slug, address, phone, rating,
-      specialties(name_fr, slug),
-      wilayas(name_fr, slug)
-    `, { count: 'exact' })
-    .eq('is_active', true)
-    .order('rating', { ascending: false })
-    .range(from, to)
+    let query = supabase
+      .from('doctors')
+      .select(`
+        id, name_fr, slug, address, phone, rating,
+        specialties(name_fr, slug),
+        wilayas(name_fr, slug)
+      `, { count: 'exact' })
+      .eq('is_active', true)
+      .order('rating', { ascending: false })
+      .range(from, to)
 
-if (q) {
-  query = query.textSearch('search_vector', q, {
-    type: 'websearch',
-    config: 'french'
-  })
-}
-  if (specialite) {
-    const { data: spec } = await supabase
-      .from('specialties').select('id').eq('slug', specialite).single()
-    if (spec) query = query.eq('specialty_id', spec.id)
+    if (q) {
+      query = query.textSearch('search_vector', q, {
+        type: 'websearch',
+        config: 'french'
+      })
+    }
+
+    if (specialite) {
+      const { data: spec } = await supabase
+        .from('specialties').select('id').eq('slug', specialite).single()
+      if (spec) query = query.eq('specialty_id', spec.id)
+    }
+
+    if (wilaya) {
+      const { data: wil } = await supabase
+        .from('wilayas').select('id').eq('slug', wilaya).single()
+      if (wil) query = query.eq('wilaya_id', wil.id)
+    }
+
+    const { data, count } = await query
+    return { doctors: data || [], total: count || 0, pageSize }
+  },
+  ['doctors-search'],
+  {
+    revalidate: 3600,
+    tags: ['doctors'],
   }
+)
 
-  if (wilaya) {
-    const { data: wil } = await supabase
-      .from('wilayas').select('id').eq('slug', wilaya).single()
-    if (wil) query = query.eq('wilaya_id', wil.id)
+const getFilters = unstable_cache(
+  async () => {
+    const { data: specialties } = await supabase
+      .from('specialties').select('id, name_fr, slug').order('name_fr')
+    const { data: wilayas } = await supabase
+      .from('wilayas').select('id, name_fr, slug').order('name_fr')
+    return { specialties, wilayas }
+  },
+  ['filters'],
+  {
+    revalidate: 86400,
+    tags: ['filters'],
   }
-
-  const { data, count } = await query
-  return { doctors: data || [], total: count || 0, pageSize }
-}
-
-async function getFilters() {
-  const { data: specialties } = await supabase
-    .from('specialties').select('id, name_fr, slug').order('name_fr')
-  const { data: wilayas } = await supabase
-    .from('wilayas').select('id, name_fr, slug').order('name_fr')
-  return { specialties, wilayas }
-}
+)
 
 function StarRating({ rating }) {
   const stars = Math.round(rating || 0)
