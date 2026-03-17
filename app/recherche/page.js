@@ -124,11 +124,11 @@ export default async function RecherchePage({ searchParams }) {
 
         <h1 className="text-2xl font-bold text-gray-800 mb-2">
   {specialite && wilaya
-    ? `${specialite.charAt(0).toUpperCase() + specialite.slice(1)} à ${wilaya.charAt(0).toUpperCase() + wilaya.slice(1)}`
+    ? `Médecins ${specialite} à ${wilaya}`
     : specialite
-    ? `${specialite.charAt(0).toUpperCase() + specialite.slice(1)} en Algérie`
+    ? `${specialite} en Algérie`
     : wilaya
-    ? `Médecins à ${wilaya.charAt(0).toUpperCase() + wilaya.slice(1)}`
+    ? `Médecins à ${wilaya}`
     : 'Recherche de médecins en Algérie'
   }
 </h1>
