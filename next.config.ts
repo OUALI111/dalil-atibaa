@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
       { source: '/:path*.php', destination: '/:path*', permanent: true },
       { source: '/index.html', destination: '/', permanent: true },
       { source: '/index.php', destination: '/', permanent: true },
+      {
+        source: '/sitemap-doctors-:page.xml',
+        destination: '/sitemap-doctors-:page',
+        permanent: false,
+      },
     ]
   },
 }
