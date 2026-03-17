@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+
 const PAGE_SIZE = 50000
 
 export async function GET(request, { params }) {
