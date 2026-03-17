@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { supabase } from '../../../../lib/supabase'
 
 const PAGE_SIZE = 50000
 

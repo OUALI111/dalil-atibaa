@@ -31,10 +31,10 @@ const nextConfig: NextConfig = {
       { source: '/index.html', destination: '/', permanent: true },
       { source: '/index.php', destination: '/', permanent: true },
       {
-        source: '/sitemap-doctors-:page.xml',
-        destination: '/sitemap-doctors-:page',
-        permanent: false,
-      },
+  source: '/sitemap-doctors-:page.xml',
+  destination: '/api/sitemap-doctors/:page',
+  permanent: false,
+},
     ]
   },
 }

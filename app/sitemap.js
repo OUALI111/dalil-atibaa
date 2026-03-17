@@ -15,9 +15,9 @@ export default async function sitemap() {
 
   // توليد روابط sitemap-doctors تلقائياً
   const doctorSitemaps = Array.from({ length: totalPages }, (_, i) => ({
-    url: `${baseUrl}/sitemap-doctors-${i + 1}.xml`,
-    lastModified: new Date(),
-  }))
+  url: `${baseUrl}/sitemap-doctors-${i + 1}.xml`,
+  lastModified: new Date(),
+}))
 
   return [
     {
