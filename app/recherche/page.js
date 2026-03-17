@@ -57,8 +57,12 @@ async function getDoctors({ q, specialite, wilaya, page = 0 }) {
     .order('rating', { ascending: false })
     .range(from, to)
 
-  if (q) query = query.ilike('name_fr', `%${q}%`)
-
+if (q) {
+  query = query.textSearch('search_vector', q, {
+    type: 'websearch',
+    config: 'simple'
+  })
+}
   if (specialite) {
     const { data: spec } = await supabase
       .from('specialties').select('id').eq('slug', specialite).single()
