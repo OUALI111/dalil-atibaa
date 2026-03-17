@@ -14,7 +14,7 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `Médecins à ${wilaya.name_fr} | Dalil Atibaa`,
-    description: `Trouvez tous les médecins à ${wilaya.name_fr}. Dentistes, cardiologues, pédiatres et plus.`,
+description: `Trouvez un médecin à ${wilaya.name_fr}. Liste complète avec adresses, téléphones et spécialités disponibles.`,
     alternates: {
       canonical: `https://dalil-atibaa.vercel.app/wilayas/${slug}`,
     },

@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata = {
   title: 'Dalil Atibaa - Annuaire des Médecins en Algérie',
-  description: 'Trouvez les meilleurs médecins en Algérie. Filtrez par wilaya et spécialité.',
+description: 'Annuaire de médecins en Algérie. Trouvez un médecin par wilaya et spécialité. Adresses et téléphones.',
   alternates: {
     canonical: 'https://dalil-atibaa.vercel.app',
   },

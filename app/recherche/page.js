@@ -28,13 +28,12 @@ export async function generateMetadata({ searchParams }) {
 
   // ✅ SEO description
   const description = specialite && wilaya
-    ? `Trouvez les meilleurs ${specialite} à ${wilaya}. Adresses et téléphones.`
-    : specialite
-    ? `Liste complète des ${specialite} en Algérie.`
-    : wilaya
-    ? `Tous les médecins à ${wilaya}.`
-    : 'Recherchez parmi des médecins en Algérie par spécialité et wilaya.'
-
+  ? `${doctors?.length || ''} ${specialite} à ${wilaya}. Adresses et téléphones disponibles sur Dalil Atibaa.`
+  : specialite
+  ? `Tous les ${specialite} en Algérie. Coordonnées et avis patients sur Dalil Atibaa.`
+  : wilaya
+  ? `Médecins à ${wilaya}. Filtrez par spécialité et prenez rendez-vous facilement.`
+  : 'Annuaire médical Algérie. Trouvez un médecin par wilaya et spécialité. Plus de 1000 médecins référencés.'
   return {
     title,
     description,

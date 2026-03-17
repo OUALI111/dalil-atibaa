@@ -14,7 +14,7 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${specialty.name_fr} en Algérie | Dalil Atibaa`,
-    description: `Trouvez les meilleurs ${specialty.name_fr} en Algérie. Liste complète avec adresses et téléphones.`,
+description: `Liste des ${specialty.name_fr} en Algérie. Adresses, téléphones et avis patients. Prenez rendez-vous facilement.`,
     alternates: {
       canonical: `https://dalil-atibaa.vercel.app/specialites/${slug}`,
     },
