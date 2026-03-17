@@ -42,51 +42,57 @@ export async function generateMetadata({ searchParams }) {
   }
 }
 
-const getDoctors = unstable_cache(
-  async ({ q, specialite, wilaya, page = 0 }) => {
-    const pageSize = 24
-    const from = page * pageSize
-    const to = from + pageSize - 1
+async function getDoctorsWithCache({ q, specialite, wilaya, page = 0 }) {
+  const cacheKey = `search-${q}-${specialite}-${wilaya}-${page}`
 
-    let query = supabase
-      .from('doctors')
-      .select(`
-        id, name_fr, slug, address, phone, rating,
-        specialties(name_fr, slug),
-        wilayas(name_fr, slug)
-      `, { count: 'exact' })
-      .eq('is_active', true)
-      .order('rating', { ascending: false })
-      .range(from, to)
+  const cachedFn = unstable_cache(
+    async () => {
+      const pageSize = 24
+      const from = page * pageSize
+      const to = from + pageSize - 1
 
-    if (q) {
-      query = query.textSearch('search_vector', q, {
-        type: 'websearch',
-        config: 'french'
-      })
+      let query = supabase
+        .from('doctors')
+        .select(`
+          id, name_fr, slug, address, phone, rating,
+          specialties(name_fr, slug),
+          wilayas(name_fr, slug)
+        `, { count: 'exact' })
+        .eq('is_active', true)
+        .order('rating', { ascending: false })
+        .range(from, to)
+
+      if (q) {
+        query = query.textSearch('search_vector', q, {
+          type: 'websearch',
+          config: 'french'
+        })
+      }
+
+      if (specialite) {
+        const { data: spec } = await supabase
+          .from('specialties').select('id').eq('slug', specialite).single()
+        if (spec) query = query.eq('specialty_id', spec.id)
+      }
+
+      if (wilaya) {
+        const { data: wil } = await supabase
+          .from('wilayas').select('id').eq('slug', wilaya).single()
+        if (wil) query = query.eq('wilaya_id', wil.id)
+      }
+
+      const { data, count } = await query
+      return { doctors: data || [], total: count || 0, pageSize }
+    },
+    [cacheKey],
+    {
+      revalidate: 3600,
+      tags: ['doctors', cacheKey],
     }
+  )
 
-    if (specialite) {
-      const { data: spec } = await supabase
-        .from('specialties').select('id').eq('slug', specialite).single()
-      if (spec) query = query.eq('specialty_id', spec.id)
-    }
-
-    if (wilaya) {
-      const { data: wil } = await supabase
-        .from('wilayas').select('id').eq('slug', wilaya).single()
-      if (wil) query = query.eq('wilaya_id', wil.id)
-    }
-
-    const { data, count } = await query
-    return { doctors: data || [], total: count || 0, pageSize }
-  },
-  ['doctors-search'],
-  {
-    revalidate: 3600,
-    tags: ['doctors'],
-  }
-)
+  return cachedFn()
+}
 
 const getFilters = unstable_cache(
   async () => {
@@ -125,9 +131,9 @@ export default async function RecherchePage({ searchParams }) {
   const page = parseInt(params?.page || '0')
 
   const [{ doctors, total, pageSize }, { specialties, wilayas }] = await Promise.all([
-    getDoctors({ q, specialite, wilaya, page }),
-    getFilters()
-  ])
+  getDoctorsWithCache({ q, specialite, wilaya, page }),
+  getFilters()
+])
 
   const totalPages = Math.ceil(total / pageSize)
 
