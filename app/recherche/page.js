@@ -47,44 +47,38 @@ export async function generateMetadata({ searchParams }) {
 }
 
 // ✅ FETCH DOCTORS
-async function getDoctors({ q, specialite, wilaya }) {
+async function getDoctors({ q, specialite, wilaya, page = 0 }) {
+  const pageSize = 24
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
   let query = supabase
     .from('doctors')
     .select(`
       id, name_fr, slug, address, phone, rating,
       specialties(name_fr, slug),
       wilayas(name_fr, slug)
-    `)
+    `, { count: 'exact' })
     .eq('is_active', true)
     .order('rating', { ascending: false })
-    .limit(24)
+    .range(from, to)
 
-  if (q) {
-    query = query.ilike('name_fr', `%${q}%`)
-  }
+  if (q) query = query.ilike('name_fr', `%${q}%`)
 
   if (specialite) {
     const { data: spec } = await supabase
-      .from('specialties')
-      .select('id')
-      .eq('slug', specialite)
-      .single()
-
+      .from('specialties').select('id').eq('slug', specialite).single()
     if (spec) query = query.eq('specialty_id', spec.id)
   }
 
   if (wilaya) {
     const { data: wil } = await supabase
-      .from('wilayas')
-      .select('id')
-      .eq('slug', wilaya)
-      .single()
-
+      .from('wilayas').select('id').eq('slug', wilaya).single()
     if (wil) query = query.eq('wilaya_id', wil.id)
   }
 
-  const { data } = await query
-  return data || []
+  const { data, count } = await query
+  return { doctors: data || [], total: count || 0, pageSize }
 }
 
 // ✅ FILTERS
@@ -125,13 +119,16 @@ export default async function RecherchePage({ searchParams }) {
   const params = searchParams
 
   const q = params?.q || ''
-  const specialite = params?.specialite || ''
-  const wilaya = params?.wilaya || ''
+const specialite = params?.specialite || ''
+const wilaya = params?.wilaya || ''
+const page = parseInt(params?.page || '0')
 
-  const [doctors, { specialties, wilayas }] = await Promise.all([
-    getDoctors({ q, specialite, wilaya }),
-    getFilters()
-  ])
+const [{ doctors, total, pageSize }, { specialties, wilayas }] = await Promise.all([
+  getDoctors({ q, specialite, wilaya, page }),
+  getFilters()
+])
+
+const totalPages = Math.ceil(total / pageSize)
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -193,8 +190,8 @@ export default async function RecherchePage({ searchParams }) {
         </h1>
 
         <p className="text-gray-500 mb-6">
-          {doctors.length} résultat(s)
-        </p>
+  {total} médecin(s) trouvé(s)
+</p>
 
         {doctors.length === 0 ? (
           <p className="text-gray-400">Aucun médecin trouvé</p>
@@ -295,6 +292,46 @@ export default async function RecherchePage({ searchParams }) {
     </div>
   </div>
 </div>
+{/* PAGINATION */}
+{totalPages > 1 && (
+  <div className="flex justify-center gap-2 mt-8 mb-4 flex-wrap">
+    {page > 0 && (
+      
+        href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${page - 1}`}
+        className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition"
+      >
+        ← Précédent
+      </a>
+    )}
+
+    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+      const pageNum = Math.max(0, Math.min(page - 2, totalPages - 5)) + i
+      return (
+        
+          key={pageNum}
+          href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${pageNum}`}
+          className={`px-4 py-2 rounded-xl border transition ${
+            pageNum === page
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50'
+          }`}
+        >
+          {pageNum + 1}
+        </a>
+      )
+    })}
+
+    {page < totalPages - 1 && (
+      
+        href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${page + 1}`}
+        className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition"
+      >
+        Suivant →
+      </a>
+    )}
+  </div>
+)}
+
       {/* FOOTER */}
       <footer className="bg-gray-800 text-gray-400 py-6 text-center text-sm">
         © 2025 Dalil Atibaa
