@@ -1,9 +1,43 @@
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 
-export const metadata = {
-  title: 'Recherche médecins en Algérie | Dalil Atibaa',
-  description: 'Recherchez parmi 1021 médecins en Algérie par spécialité et wilaya.',
+export async function generateMetadata({ searchParams }) {
+  const params = await searchParams
+  const q = params?.q || ''
+  const specialite = params?.specialite || ''
+  const wilaya = params?.wilaya || ''
+
+  // canonical يشير دائماً للصفحة بدون parameters فارغة
+  const canonicalUrl = specialite || wilaya
+    ? `https://dalil-atibaa.vercel.app/recherche?${specialite ? `specialite=${specialite}` : ''}${specialite && wilaya ? '&' : ''}${wilaya ? `wilaya=${wilaya}` : ''}`
+    : 'https://dalil-atibaa.vercel.app/recherche'
+
+  const title = specialite && wilaya
+    ? `${specialite} à ${wilaya} | Dalil Atibaa`
+    : specialite
+    ? `${specialite} en Algérie | Dalil Atibaa`
+    : wilaya
+    ? `Médecins à ${wilaya} | Dalil Atibaa`
+    : 'Recherche médecins en Algérie | Dalil Atibaa'
+
+  const description = specialite && wilaya
+    ? `Trouvez les meilleurs ${specialite} à ${wilaya}. Adresses, téléphones et avis patients.`
+    : specialite
+    ? `Liste complète des ${specialite} en Algérie. Adresses et téléphones.`
+    : wilaya
+    ? `Tous les médecins à ${wilaya}. Filtrez par spécialité.`
+    : 'Recherchez parmi 1021 médecins en Algérie par spécialité et wilaya.'
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    robots: specialite || wilaya || q
+      ? { index: true, follow: true }
+      : { index: true, follow: true },
+  }
 }
 
 async function getDoctors({ q, specialite, wilaya }) {
