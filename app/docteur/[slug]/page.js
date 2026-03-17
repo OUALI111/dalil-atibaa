@@ -114,7 +114,6 @@ export default async function DoctorPage({ params }) {
         </div>
       </header>
 
-      {/* Breadcrumbs */}
       <div className="max-w-4xl mx-auto px-4 py-3 text-sm text-gray-500 flex gap-2 flex-wrap">
         <Link href="/" className="hover:text-blue-600">Accueil</Link>
         <span>›</span>
@@ -131,6 +130,7 @@ export default async function DoctorPage({ params }) {
 
       <div className="max-w-4xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-4">
+          
           {/* Carte Profil */}
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-start gap-4">
@@ -193,33 +193,41 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-         {/* Localisation / Map */}
-          {doctor.latitude && doctor.longitude && (
+          {/* Localisation / Map avec Image */}
+          {(doctor.latitude && doctor.longitude) && (
             <div className="bg-white rounded-2xl shadow-sm p-4">
               <h2 className="font-semibold text-gray-800 mb-3">📍 Localisation</h2>
               
-              {/* L'URL A ÉTÉ CORRIGÉE ICI 👇 */}
+              {/* Le lien utilise maintenant la requête officielle de Google Maps */}
               <a 
                 href={`https://www.google.com/maps/search/?api=1&query=${doctor.latitude},${doctor.longitude}`}
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-full"
+                className="block w-full relative rounded-xl overflow-hidden border border-gray-200 group cursor-pointer"
               >
-                <div className="w-full h-48 rounded-xl bg-blue-50 border border-blue-100 flex flex-col items-center justify-center hover:bg-blue-100 transition cursor-pointer">
-                  <span className="text-4xl mb-2">🗺️</span>
-                  <span className="text-blue-600 font-medium">Voir sur Google Maps</span>
-                  <span className="text-gray-400 text-sm mt-1">
-                    {doctor.address || doctor.wilayas?.name_fr}
-                  </span>
+                {/* REMARQUE: Mettez une image de carte (ex: map-bg.jpg) dans votre dossier "public" et changez le 'src' ci-dessous pour src="/map-bg.jpg" */}
+                <img 
+                  src="https://placehold.co/600x250/eef2ff/4f46e5?text=Cliquer+pour+voir+sur+Google+Maps" 
+                  alt={`Carte pour ${doctor.name_fr}`}
+                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                
+                {/* Overlay au survol pour montrer que c'est cliquable */}
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 flex items-center justify-center transition-colors">
+                  <div className="bg-white/95 backdrop-blur-sm px-5 py-2.5 rounded-full font-semibold text-blue-700 shadow-lg flex items-center gap-2 transform group-hover:-translate-y-1 transition-transform">
+                    <span>🗺️</span> Ouvrir la carte exacte
+                  </div>
                 </div>
               </a>
 
               {doctor.google_map_url && (
-                <a href={doctor.google_map_url} target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 text-sm mt-2 inline-block hover:underline">
-                  Ouvrir dans Google Maps →
-                </a>
+                <div className="mt-3 text-center">
+                  <a href={doctor.google_map_url} target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-500 text-sm hover:text-blue-600 hover:underline">
+                    Lien d'itinéraire alternatif
+                  </a>
+                </div>
               )}
             </div>
           )}
