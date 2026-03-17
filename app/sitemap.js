@@ -25,7 +25,7 @@ export default async function sitemap() {
       lastModified: new Date(),
     },
     {
-      url: `${baseUrl}sitemap-doctors-[page].xml`,
+      url: `${baseUrl}/sitemap-doctors-[page].xml`,
       lastModified: new Date(),
     },
     {
