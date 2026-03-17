@@ -22,7 +22,8 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
-    description: `${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Adresse, téléphone et prise de rendez-vous.`,
+description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. ☎ ${doctor.phone || 'Contactez-nous'}. Adresse: ${doctor.address || doctor.wilayas?.name_fr}. Prenez rendez-vous en ligne.`,
+keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
     alternates: {
       canonical: `https://dalil-atibaa.vercel.app/docteur/${slug}`,
     },
