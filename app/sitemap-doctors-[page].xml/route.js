@@ -1,13 +1,18 @@
-import { supabase } from '../../lib/supabase'
+import { supabase } from '../../../lib/supabase'
 
-export async function GET() {
+const PAGE_SIZE = 50000
+
+export async function GET(request, { params }) {
   const baseUrl = 'https://dalil-atibaa.vercel.app'
+  const page = parseInt(params.page) - 1
+  const from = page * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
 
   const { data: doctors } = await supabase
     .from('doctors')
     .select('slug, updated_at')
     .eq('is_active', true)
-    .range(0, 1999)
+    .range(from, to)
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -21,6 +26,9 @@ ${doctors?.map(d => `
 </urlset>`
 
   return new Response(xml, {
-    headers: { 'Content-Type': 'application/xml' }
+    headers: {
+      'Content-Type': 'application/xml',
+      'Cache-Control': 'public, max-age=3600',
+    }
   })
 }
