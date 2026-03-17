@@ -122,8 +122,11 @@ export default async function RecherchePage({ searchParams }) {
       {/* RESULTS */}
       <div className="max-w-6xl mx-auto px-4 py-8">
 
-        <p className="text-gray-500 mb-6">
-          {doctors.length} médecin(s) trouvé(s)
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">
+  Recherche de médecins en Algérie
+</h1>
+<p className="text-gray-500 mb-6">
+  {doctors.length} médecin(s) trouvé(s)
           {q && <span> pour "<strong>{q}</strong>"</span>}
           {specialite && <span> — {specialite}</span>}
           {wilaya && <span> — {wilaya}</span>}

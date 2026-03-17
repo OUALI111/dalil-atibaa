@@ -6,7 +6,7 @@ export async function generateMetadata({ params }) {
   const { slug } = await params
   const { data: doctor } = await supabase
     .from('doctors')
-    .select('name_fr, specialties(name_fr), wilayas(name_fr)')
+    .select('name_fr, specialty_id, specialties(name_fr), wilayas(name_fr)')
     .eq('slug', slug)
     .single()
 
@@ -22,10 +22,13 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
-    description: `${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Adresse, téléphone et prise de rendez-vous en ligne.`,
+    description: `${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Adresse, téléphone et prise de rendez-vous.`,
+    alternates: {
+      canonical: `https://dalil-atibaa.vercel.app/docteur/${slug}`,
+    },
     openGraph: {
       title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}`,
-      description: `Services: ${servicesText}. Consultez le profil complet.`,
+      description: `Services: ${servicesText}`,
       type: 'website',
     }
   }
@@ -102,7 +105,6 @@ export default async function DoctorPage({ params }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* HEADER */}
       <header className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="text-2xl font-bold text-blue-700">
@@ -111,17 +113,14 @@ export default async function DoctorPage({ params }) {
         </div>
       </header>
 
-      {/* BREADCRUMB */}
       <div className="max-w-4xl mx-auto px-4 py-3 text-sm text-gray-500 flex gap-2 flex-wrap">
         <Link href="/" className="hover:text-blue-600">Accueil</Link>
         <span>›</span>
-        <Link href={`/specialites/${doctor.specialties?.slug}`}
-          className="hover:text-blue-600">
+        <Link href={`/specialites/${doctor.specialties?.slug}`} className="hover:text-blue-600">
           {doctor.specialties?.name_fr}
         </Link>
         <span>›</span>
-        <Link href={`/wilayas/${doctor.wilayas?.slug}`}
-          className="hover:text-blue-600">
+        <Link href={`/wilayas/${doctor.wilayas?.slug}`} className="hover:text-blue-600">
           {doctor.wilayas?.name_fr}
         </Link>
         <span>›</span>
@@ -130,13 +129,11 @@ export default async function DoctorPage({ params }) {
 
       <div className="max-w-4xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* COLONNE PRINCIPALE */}
         <div className="md:col-span-2 space-y-4">
 
-          {/* CARTE PRINCIPALE */}
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-start gap-4">
-              <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-3xl flex-shrink-0">
+              <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-3xl shrink-0">
                 {doctor.name_fr?.charAt(0)}
               </div>
               <div className="flex-1">
@@ -155,10 +152,7 @@ export default async function DoctorPage({ params }) {
                 </p>
                 <div className="flex items-center gap-1 mt-2">
                   {[1,2,3,4,5].map(i => (
-                    <span key={i}
-                      className={i <= stars ? 'text-yellow-400 text-xl' : 'text-gray-300 text-xl'}>
-                      ★
-                    </span>
+                    <span key={i} className={i <= stars ? 'text-yellow-400 text-xl' : 'text-gray-300 text-xl'}>★</span>
                   ))}
                   <span className="text-gray-500 ml-1">{doctor.rating} / 5</span>
                 </div>
@@ -169,16 +163,13 @@ export default async function DoctorPage({ params }) {
               {doctor.wilayas && (
                 <div className="flex items-center gap-3 text-gray-600">
                   <span className="text-xl">📍</span>
-                  <span>{doctor.wilayas.name_fr}
-                    {doctor.address && ` — ${doctor.address}`}
-                  </span>
+                  <span>{doctor.wilayas.name_fr}{doctor.address && ` — ${doctor.address}`}</span>
                 </div>
               )}
               {doctor.phone && (
-                <div className="flex items-center gap-3 text-gray-600">
+                <div className="flex items-center gap-3">
                   <span className="text-xl">📞</span>
-                  <a href={`tel:${doctor.phone}`}
-                    className="text-green-600 font-semibold hover:underline">
+                  <a href={`tel:${doctor.phone}`} className="text-green-600 font-semibold hover:underline">
                     {doctor.phone}
                   </a>
                 </div>
@@ -186,16 +177,12 @@ export default async function DoctorPage({ params }) {
             </div>
           </div>
 
-          {/* SERVICES */}
           {services && services.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h2 className="font-bold text-gray-800 text-lg mb-4">
-                Nos Services
-              </h2>
+              <h2 className="font-bold text-gray-800 text-lg mb-4">Nos Services</h2>
               <div className="grid grid-cols-2 gap-2">
                 {services.map(s => (
-                  <div key={s.slug}
-                    className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
+                  <div key={s.slug} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
                     <span className="text-blue-500">✓</span>
                     <span className="text-sm text-gray-700">{s.name_fr}</span>
                   </div>
@@ -204,7 +191,6 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {/* CARTE MAPS */}
           {doctor.latitude && doctor.longitude && (
             <div className="bg-white rounded-2xl shadow-sm p-4">
               <h2 className="font-semibold text-gray-800 mb-3">📍 Localisation</h2>
@@ -214,10 +200,10 @@ export default async function DoctorPage({ params }) {
                 height="250"
                 className="rounded-xl border-0"
                 loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
               />
               {doctor.google_map_url && (
-                <a href={doctor.google_map_url} target="_blank"
-                  rel="noopener noreferrer"
+                <a href={doctor.google_map_url} target="_blank" rel="noopener noreferrer"
                   className="text-blue-600 text-sm mt-2 inline-block hover:underline">
                   Ouvrir dans Google Maps →
                 </a>
@@ -225,7 +211,6 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {/* SIMILAIRES */}
           {similar && similar.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="font-semibold text-gray-800 mb-4">
@@ -250,19 +235,15 @@ export default async function DoctorPage({ params }) {
           )}
         </div>
 
-        {/* SIDEBAR */}
         <div className="space-y-4">
-
           <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
             <h2 className="font-semibold text-gray-800 mb-4">Prendre rendez-vous</h2>
             {doctor.is_dentflow ? (
-              <a href="#"
-                className="block w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition">
+              <a href="#" className="block w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition">
                 Réserver en ligne
               </a>
             ) : (
-              <a href={`tel:${doctor.phone}`}
-                className="block w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition">
+              <a href={`tel:${doctor.phone}`} className="block w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition">
                 📞 Appeler
               </a>
             )}
@@ -288,20 +269,16 @@ export default async function DoctorPage({ params }) {
 
           {services && services.length > 0 && (
             <div className="bg-blue-50 rounded-2xl p-4">
-              <p className="text-sm text-blue-700 font-medium mb-2">
-                Mots-clés associés:
-              </p>
+              <p className="text-sm text-blue-700 font-medium mb-2">Mots-clés:</p>
               <div className="flex flex-wrap gap-1">
                 {services.map(s => (
-                  <span key={s.slug}
-                    className="text-xs bg-white text-blue-600 px-2 py-1 rounded-full border border-blue-200">
+                  <span key={s.slug} className="text-xs bg-white text-blue-600 px-2 py-1 rounded-full border border-blue-200">
                     {s.name_fr}
                   </span>
                 ))}
               </div>
             </div>
           )}
-
         </div>
       </div>
 
