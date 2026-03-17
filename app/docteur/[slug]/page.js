@@ -67,36 +67,100 @@ export default async function DoctorPage({ params }) {
 
   const stars = Math.round(doctor.rating || 0)
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Physician',
-    name: doctor.name_fr,
-    medicalSpecialty: doctor.specialties?.name_fr,
-    address: {
-      '@type': 'PostalAddress',
-      addressLocality: doctor.wilayas?.name_fr,
-      addressCountry: 'DZ',
-      streetAddress: doctor.address,
+ const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': ['Physician', 'MedicalBusiness'],
+      '@id': `https://dalil-atibaa.vercel.app/docteur/${doctor.slug}`,
+      name: doctor.name_fr,
+      medicalSpecialty: doctor.specialties?.name_fr,
+      description: `${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}`,
+      url: `https://dalil-atibaa.vercel.app/docteur/${doctor.slug}`,
+      telephone: doctor.phone,
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: doctor.address,
+        addressLocality: doctor.wilayas?.name_fr,
+        addressCountry: 'DZ',
+      },
+      geo: doctor.latitude && doctor.longitude ? {
+        '@type': 'GeoCoordinates',
+        latitude: doctor.latitude,
+        longitude: doctor.longitude,
+      } : undefined,
+      aggregateRating: doctor.rating > 0 ? {
+        '@type': 'AggregateRating',
+        ratingValue: doctor.rating,
+        bestRating: 5,
+        worstRating: 1,
+        ratingCount: doctor.reviews_count || 1,
+      } : undefined,
+      hasOfferCatalog: services?.length > 0 ? {
+        '@type': 'OfferCatalog',
+        name: `Services de ${doctor.specialties?.name_fr}`,
+        itemListElement: services.map(s => ({
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'MedicalProcedure',
+            name: s.name_fr,
+          }
+        }))
+      } : undefined,
+      sameAs: doctor.google_map_url ? [doctor.google_map_url] : [],
     },
-    telephone: doctor.phone,
-    aggregateRating: doctor.rating > 0 ? {
-      '@type': 'AggregateRating',
-      ratingValue: doctor.rating,
-      bestRating: 5,
-      ratingCount: doctor.reviews_count || 1,
-    } : undefined,
-    hasOfferCatalog: services?.length > 0 ? {
-      '@type': 'OfferCatalog',
-      name: `Services de ${doctor.specialties?.name_fr}`,
-      itemListElement: services.map(s => ({
-        '@type': 'Offer',
-        itemOffered: {
-          '@type': 'MedicalProcedure',
-          name: s.name_fr,
-        }
-      }))
-    } : undefined,
-  }
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Accueil',
+          item: 'https://dalil-atibaa.vercel.app',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: doctor.specialties?.name_fr,
+          item: `https://dalil-atibaa.vercel.app/specialites/${doctor.specialties?.slug}`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: doctor.wilayas?.name_fr,
+          item: `https://dalil-atibaa.vercel.app/wilayas/${doctor.wilayas?.slug}`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 4,
+          name: doctor.name_fr,
+          item: `https://dalil-atibaa.vercel.app/docteur/${doctor.slug}`,
+        },
+      ]
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: `Comment prendre rendez-vous avec ${doctor.name_fr} ?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `Appelez directement au ${doctor.phone || 'numéro disponible'} pour prendre rendez-vous.`,
+          }
+        },
+        {
+          '@type': 'Question',
+          name: `Où se trouve ${doctor.name_fr} ?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `${doctor.name_fr} est situé à ${doctor.wilayas?.name_fr}${doctor.address ? `, ${doctor.address}` : ''}.`,
+          }
+        },
+      ]
+    }
+  ]
+}
 
   return (
     <main className="min-h-screen bg-gray-50">
