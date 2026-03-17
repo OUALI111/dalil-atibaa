@@ -2,8 +2,9 @@ import { supabase } from '../../../../lib/supabase'
 
 const PAGE_SIZE = 50000
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   const baseUrl = 'https://dalil-atibaa.vercel.app'
+  const params = await context.params
   const page = parseInt(params.page) - 1
   const from = page * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
