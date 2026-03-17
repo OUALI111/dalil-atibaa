@@ -25,6 +25,10 @@ export default async function sitemap() {
       lastModified: new Date(),
     },
     {
+      url: `${baseUrl}sitemap-doctors-[page].xml`,
+      lastModified: new Date(),
+    },
+    {
       url: `${baseUrl}/sitemap-wilayas.xml`,
       lastModified: new Date(),
     },
