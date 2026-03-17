@@ -13,8 +13,11 @@ export async function generateMetadata({ params }) {
   if (!wilaya) return { title: 'Wilaya introuvable' }
 
   return {
-    title: `Médecins à ${wilaya.name_fr} - Annuaire médical | Dalil Atibaa`,
-    description: `Trouvez tous les médecins à ${wilaya.name_fr}. Dentistes, cardiologues, pédiatres et plus. Adresses et téléphones.`,
+    title: `Médecins à ${wilaya.name_fr} | Dalil Atibaa`,
+    description: `Trouvez tous les médecins à ${wilaya.name_fr}. Dentistes, cardiologues, pédiatres et plus.`,
+    alternates: {
+      canonical: `https://dalil-atibaa.vercel.app/wilayas/${slug}`,
+    },
   }
 }
 
