@@ -22,8 +22,8 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
-description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. ☎ ${doctor.phone || 'Contactez-nous'}. Adresse: ${doctor.address || doctor.wilayas?.name_fr}. Prenez rendez-vous en ligne.`,
-keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
+    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. ☎ ${doctor.phone || 'Contactez-nous'}. Adresse: ${doctor.address || doctor.wilayas?.name_fr}. Prenez rendez-vous en ligne.`,
+    keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
     alternates: {
       canonical: `https://dalil-atibaa.vercel.app/docteur/${slug}`,
     },
@@ -195,16 +195,23 @@ export default async function DoctorPage({ params }) {
           {doctor.latitude && doctor.longitude && (
             <div className="bg-white rounded-2xl shadow-sm p-4">
               <h2 className="font-semibold text-gray-800 mb-3">📍 Localisation</h2>
-              <iframe
-                src={`https://maps.google.com/maps?q=${doctor.latitude},${doctor.longitude}&z=15&output=embed`}
-                width="100%"
-                height="250"
-                className="rounded-xl border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+              
+                href={`https://maps.google.com/maps?q=${doctor.latitude},${doctor.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full"
+              >
+                <div className="w-full h-48 rounded-xl bg-blue-50 border border-blue-100 flex flex-col items-center justify-center hover:bg-blue-100 transition cursor-pointer">
+                  <span className="text-4xl mb-2">🗺️</span>
+                  <span className="text-blue-600 font-medium">Voir sur Google Maps</span>
+                  <span className="text-gray-400 text-sm mt-1">
+                    {doctor.address || doctor.wilayas?.name_fr}
+                  </span>
+                </div>
+              </a>
               {doctor.google_map_url && (
-                <a href={doctor.google_map_url} target="_blank" rel="noopener noreferrer"
+                <a href={doctor.google_map_url} target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-600 text-sm mt-2 inline-block hover:underline">
                   Ouvrir dans Google Maps →
                 </a>
