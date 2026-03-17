@@ -187,11 +187,12 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {doctor.latitude && doctor.longitude && (
-            <div className="bg-white rounded-2xl shadow-sm p-4">
-              <h2 className="font-semibold text-gray-800 mb-3">Localisation</h2>
+          {doctor.google_map_url && (
+  <div className="bg-white rounded-2xl shadow-sm p-4">
+    <h2 className="font-semibold text-gray-800 mb-3">Localisation</h2>
               <a
-                href={`https://maps.google.com/maps?q=${doctor.latitude},${doctor.longitude}`}
+                      href={doctor.google_map_url}
+
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full"
