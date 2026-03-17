@@ -153,7 +153,38 @@ export default async function SpecialitePage({ params }) {
           </div>
         )}
       </div>
-
+{/* SEO CONTENT */}
+<div className="max-w-6xl mx-auto px-4 py-8">
+  <div className="bg-white rounded-2xl p-6 shadow-sm">
+    <h2 className="text-xl font-bold text-gray-800 mb-4">
+      {specialty.name_fr} en Algérie
+    </h2>
+    <p className="text-gray-600 mb-4">
+      Consultez notre annuaire complet des {specialty.name_fr} en Algérie.
+      Trouvez facilement un {specialty.name_fr} près de chez vous avec adresse,
+      numéro de téléphone et avis patients. Prenez rendez-vous rapidement.
+    </p>
+    <h3 className="text-lg font-semibold text-gray-800 mb-3">
+      Questions fréquentes
+    </h3>
+    <div className="space-y-3">
+      <div>
+        <p className="font-medium text-gray-700">Comment choisir un bon {specialty.name_fr} ?</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Consultez les avis patients et la note de chaque {specialty.name_fr} sur notre annuaire
+          pour faire le meilleur choix.
+        </p>
+      </div>
+      <div>
+        <p className="font-medium text-gray-700">Comment prendre rendez-vous avec un {specialty.name_fr} ?</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Trouvez un {specialty.name_fr} dans votre wilaya et appelez directement
+          au numéro affiché sur sa fiche.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
         <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
       </footer>

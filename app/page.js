@@ -123,6 +123,60 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+{/* SEO CONTENT */}
+<section className="max-w-6xl mx-auto px-4 py-12">
+  <div className="bg-white rounded-2xl p-8 shadow-sm">
+    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+      Annuaire médical en Algérie
+    </h2>
+    <p className="text-gray-600 mb-6">
+      Dalil Atibaa est le premier annuaire médical en ligne dédié à l Algérie.
+      Trouvez rapidement un médecin dans votre wilaya, consultez ses coordonnées,
+      son adresse et prenez rendez-vous directement par téléphone.
+      Notre base de données recense plus de 1000 médecins dans les 58 wilayas d Algérie.
+    </p>
+    <h3 className="text-xl font-bold text-gray-800 mb-4">
+      Questions fréquentes
+    </h3>
+    <div className="grid md:grid-cols-2 gap-4">
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-semibold text-gray-700 mb-2">
+          Comment trouver un médecin près de chez moi ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Utilisez notre moteur de recherche, sélectionnez votre wilaya
+          et votre spécialité souhaitée pour trouver les médecins disponibles près de vous.
+        </p>
+      </div>
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-semibold text-gray-700 mb-2">
+          Est-ce que Dalil Atibaa est gratuit ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Oui, la consultation de l annuaire est entièrement gratuite pour les patients.
+        </p>
+      </div>
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-semibold text-gray-700 mb-2">
+          Quelles wilayas sont couvertes ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Dalil Atibaa couvre les 58 wilayas d Algérie incluant Alger, Oran,
+          Constantine, Annaba, Blida et toutes les autres wilayas.
+        </p>
+      </div>
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-semibold text-gray-700 mb-2">
+          Comment ajouter mon cabinet médical ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          Contactez-nous pour référencer votre cabinet sur Dalil Atibaa
+          et être visible par des milliers de patients chaque mois.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* FOOTER */}
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm">

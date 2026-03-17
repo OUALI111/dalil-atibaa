@@ -152,7 +152,36 @@ export default async function WilayaPage({ params }) {
           </div>
         )}
       </div>
-
+{/* SEO CONTENT */}
+<div className="max-w-6xl mx-auto px-4 py-8">
+  <div className="bg-white rounded-2xl p-6 shadow-sm">
+    <h2 className="text-xl font-bold text-gray-800 mb-4">
+      Trouver un médecin à {wilaya.name_fr}
+    </h2>
+    <p className="text-gray-600 mb-4">
+      Dalil Atibaa vous aide à trouver rapidement un médecin à {wilaya.name_fr}.
+      Notre annuaire recense les médecins généralistes, dentistes, cardiologues,
+      gynécologues et bien d autres spécialistes dans toute la wilaya de {wilaya.name_fr}.
+    </p>
+    <h3 className="text-lg font-semibold text-gray-800 mb-3">
+      Questions fréquentes
+    </h3>
+    <div className="space-y-3">
+      <div>
+        <p className="font-medium text-gray-700">Comment prendre rendez-vous avec un médecin à {wilaya.name_fr} ?</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Trouvez le médecin sur notre annuaire et appelez directement au numéro indiqué sur sa fiche.
+        </p>
+      </div>
+      <div>
+        <p className="font-medium text-gray-700">Quelles spécialités sont disponibles à {wilaya.name_fr} ?</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Médecine générale, dentisterie, cardiologie, gynécologie, pédiatrie et bien d autres spécialités.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
         <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
       </footer>
