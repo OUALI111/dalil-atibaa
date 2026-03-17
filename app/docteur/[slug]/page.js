@@ -6,11 +6,11 @@ export async function generateMetadata({ params }) {
   const { slug } = await params
   const { data: doctor } = await supabase
     .from('doctors')
-    .select('name_fr, specialty_id, specialties(name_fr), wilayas(name_fr), phone, address')
+    .select('name_fr, specialty_id, specialties(name_fr), wilayas(name_fr)')
     .eq('slug', slug)
     .single()
 
-  if (!doctor) return { title: 'Médecin introuvable' }
+  if (!doctor) return { title: 'Medecin introuvable' }
 
   const { data: services } = await supabase
     .from('services')
@@ -21,14 +21,14 @@ export async function generateMetadata({ params }) {
   const servicesText = services?.map(s => s.name_fr).join(', ')
 
   return {
-    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
-    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. ☎ ${doctor.phone || 'Contactez-nous'}. Adresse: ${doctor.address || doctor.wilayas?.name_fr}. Prenez rendez-vous en ligne.`,
+    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
+    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Adresse: ${doctor.address || doctor.wilayas?.name_fr}. Prenez rendez-vous en ligne.`,
     keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
     alternates: {
       canonical: `https://dalil-atibaa.vercel.app/docteur/${slug}`,
     },
     openGraph: {
-      title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}`,
+      title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}`,
       description: `Services: ${servicesText}`,
       type: 'website',
     }
@@ -88,19 +88,19 @@ export default async function DoctorPage({ params }) {
     hasOfferCatalog: services?.length > 0 ? {
       '@type': 'OfferCatalog',
       name: `Services de ${doctor.specialties?.name_fr}`,
-      itemListElement: services.map((s, index) => ({
+      itemListElement: services.map(s => ({
         '@type': 'Offer',
         itemOffered: {
           '@type': 'MedicalProcedure',
           name: s.name_fr,
-        },
-        position: index + 1
+        }
       }))
     } : undefined,
   }
 
   return (
     <main className="min-h-screen bg-gray-50">
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -109,7 +109,7 @@ export default async function DoctorPage({ params }) {
       <header className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="text-2xl font-bold text-blue-700">
-            Dalil Atibaa 🇩🇿
+            Dalil Atibaa
           </Link>
         </div>
       </header>
@@ -129,33 +129,28 @@ export default async function DoctorPage({ params }) {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+
         <div className="md:col-span-2 space-y-4">
-          
-          {/* Carte Profil */}
+
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-start gap-4">
               <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-3xl shrink-0">
                 {doctor.name_fr?.charAt(0)}
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-gray-800">
-                    {doctor.name_fr}
-                  </h1>
-                  {doctor.is_verified && (
-                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
-                      ✓ Vérifié
-                    </span>
-                  )}
-                </div>
+                <h1 className="text-2xl font-bold text-gray-800">
+                  {doctor.name_fr}
+                </h1>
                 <p className="text-blue-600 font-medium mt-1">
                   {doctor.specialties?.name_fr}
                 </p>
                 <div className="flex items-center gap-1 mt-2">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <span key={i} className={i <= stars ? 'text-yellow-400 text-xl' : 'text-gray-300 text-xl'}>★</span>
+                  {[1,2,3,4,5].map(i => (
+                    <span key={i} className={i <= stars ? 'text-yellow-400 text-xl' : 'text-gray-300 text-xl'}>
+                      &#9733;
+                    </span>
                   ))}
-                  <span className="text-gray-500 ml-1">{doctor.rating || 0} / 5</span>
+                  <span className="text-gray-500 ml-1">{doctor.rating} / 5</span>
                 </div>
               </div>
             </div>
@@ -163,13 +158,13 @@ export default async function DoctorPage({ params }) {
             <div className="mt-6 space-y-3 border-t pt-4">
               {doctor.wilayas && (
                 <div className="flex items-center gap-3 text-gray-600">
-                  <span className="text-xl">📍</span>
-                  <span>{doctor.wilayas.name_fr}{doctor.address && ` — ${doctor.address}`}</span>
+                  <span className="text-xl">&#128205;</span>
+                  <span>{doctor.wilayas.name_fr}{doctor.address && ` - ${doctor.address}`}</span>
                 </div>
               )}
               {doctor.phone && (
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">📞</span>
+                  <span className="text-xl">&#128222;</span>
                   <a href={`tel:${doctor.phone}`} className="text-green-600 font-semibold hover:underline">
                     {doctor.phone}
                   </a>
@@ -178,14 +173,13 @@ export default async function DoctorPage({ params }) {
             </div>
           </div>
 
-          {/* Services */}
           {services && services.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="font-bold text-gray-800 text-lg mb-4">Nos Services</h2>
               <div className="grid grid-cols-2 gap-2">
                 {services.map(s => (
-                  <div key={s.slug || s.name_fr} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
-                    <span className="text-blue-500">✓</span>
+                  <div key={s.slug} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
+                    <span className="text-blue-500">&#10003;</span>
                     <span className="text-sm text-gray-700">{s.name_fr}</span>
                   </div>
                 ))}
@@ -193,50 +187,29 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {/* Localisation / Map avec Image */}
-          {(doctor.latitude && doctor.longitude) && (
+          {doctor.latitude && doctor.longitude && (
             <div className="bg-white rounded-2xl shadow-sm p-4">
-              <h2 className="font-semibold text-gray-800 mb-3">📍 Localisation</h2>
-              
-              {/* Le lien utilise maintenant la requête officielle de Google Maps */}
-              <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${doctor.latitude},${doctor.longitude}`}
-                target="_blank" 
+              <h2 className="font-semibold text-gray-800 mb-3">Localisation</h2>
+              <a
+                href={`https://maps.google.com/maps?q=${doctor.latitude},${doctor.longitude}`}
+                target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full relative rounded-xl overflow-hidden border border-gray-200 group cursor-pointer"
+                className="block w-full"
               >
-                {/* REMARQUE: Mettez une image de carte (ex: map-bg.jpg) dans votre dossier "public" et changez le 'src' ci-dessous pour src="/map-bg.jpg" */}
-                <img 
-                  src="https://placehold.co/600x250/eef2ff/4f46e5?text=Cliquer+pour+voir+sur+Google+Maps" 
-                  alt={`Carte pour ${doctor.name_fr}`}
-                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                
-                {/* Overlay au survol pour montrer que c'est cliquable */}
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 flex items-center justify-center transition-colors">
-                  <div className="bg-white/95 backdrop-blur-sm px-5 py-2.5 rounded-full font-semibold text-blue-700 shadow-lg flex items-center gap-2 transform group-hover:-translate-y-1 transition-transform">
-                    <span>🗺️</span> Ouvrir la carte exacte
-                  </div>
+                <div className="w-full h-48 rounded-xl bg-blue-50 border border-blue-100 flex flex-col items-center justify-center hover:bg-blue-100 transition cursor-pointer">
+                  <span className="text-blue-600 font-medium text-lg">Voir sur Google Maps</span>
+                  <span className="text-gray-400 text-sm mt-1">
+                    {doctor.address || doctor.wilayas?.name_fr}
+                  </span>
                 </div>
               </a>
-
-              {doctor.google_map_url && (
-                <div className="mt-3 text-center">
-                  <a href={doctor.google_map_url} target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-500 text-sm hover:text-blue-600 hover:underline">
-                    Lien d'itinéraire alternatif
-                  </a>
-                </div>
-              )}
             </div>
           )}
 
-          {/* Similar Doctors */}
           {similar && similar.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="font-semibold text-gray-800 mb-4">
-                Médecins similaires à {doctor.wilayas?.name_fr}
+                Medecins similaires
               </h2>
               <div className="space-y-3">
                 {similar.map(s => (
@@ -249,7 +222,7 @@ export default async function DoctorPage({ params }) {
                       <p className="font-medium text-gray-800">{s.name_fr}</p>
                       <p className="text-sm text-gray-500">{s.specialties?.name_fr}</p>
                     </div>
-                    <span className="ml-auto text-yellow-400">★ {s.rating || 0}</span>
+                    <span className="ml-auto text-yellow-400">{s.rating}</span>
                   </Link>
                 ))}
               </div>
@@ -257,17 +230,16 @@ export default async function DoctorPage({ params }) {
           )}
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4">
           <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
             <h2 className="font-semibold text-gray-800 mb-4">Prendre rendez-vous</h2>
             {doctor.is_dentflow ? (
               <a href="#" className="block w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition">
-                Réserver en ligne
+                Reserver en ligne
               </a>
             ) : (
               <a href={`tel:${doctor.phone}`} className="block w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition">
-                📞 Appeler
+                Appeler
               </a>
             )}
           </div>
@@ -276,7 +248,7 @@ export default async function DoctorPage({ params }) {
             <h2 className="font-semibold text-gray-800 mb-4">Informations</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Spécialité</span>
+                <span className="text-gray-500">Specialite</span>
                 <span className="font-medium">{doctor.specialties?.name_fr}</span>
               </div>
               <div className="flex justify-between">
@@ -285,16 +257,30 @@ export default async function DoctorPage({ params }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Note</span>
-                <span className="font-medium text-yellow-500">★ {doctor.rating || 0}/5</span>
+                <span className="font-medium text-yellow-500">{doctor.rating}/5</span>
               </div>
             </div>
           </div>
+
+          {services && services.length > 0 && (
+            <div className="bg-blue-50 rounded-2xl p-4">
+              <p className="text-sm text-blue-700 font-medium mb-2">Mots-cles:</p>
+              <div className="flex flex-wrap gap-1">
+                {services.map(s => (
+                  <span key={s.slug} className="text-xs bg-white text-blue-600 px-2 py-1 rounded-full border border-blue-200">
+                    {s.name_fr}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
-        <p>© 2026 Dalil Atibaa — Annuaire des médecins en Algérie</p>
+        <p>2025 Dalil Atibaa - Annuaire des medecins en Algerie</p>
       </footer>
+
     </main>
   )
 }
