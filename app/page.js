@@ -183,8 +183,8 @@ export default async function HomePage() {
           {specialties?.map(s => (
             <Link key={s.id} href={`/specialites/${s.slug}`} style={{ textDecoration: 'none' }}>
               <div style={{ background: 'white', borderRadius: '16px', padding: '20px 12px', textAlign: 'center', border: '2px solid #e2e8f0', transition: 'all 0.2s', cursor: 'pointer' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(37,99,235,0.15)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)' }}>
+                
+                >
                 <div style={{ width: '44px', height: '44px', background: '#eff6ff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
                   <svg width="22" height="22" fill="none" stroke="#2563eb" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={specialtyIcons[s.slug] || specialtyIcons.default} />
@@ -215,8 +215,8 @@ export default async function HomePage() {
             {wilayas?.filter(w => topWilayas.includes(w.slug)).map(w => (
               <Link key={w.id} href={`/wilayas/${w.slug}`} style={{ textDecoration: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '2px solid #e2e8f0', transition: 'all 0.2s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#93c5fd' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0' }}>
+                  
+                  >
                   <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', shrink: 0 }}>
                     <svg width="18" height="18" fill="none" stroke="white" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -232,8 +232,8 @@ export default async function HomePage() {
             {wilayas?.filter(w => !topWilayas.includes(w.slug)).map(w => (
               <Link key={w.id} href={`/wilayas/${w.slug}`}
                 style={{ fontSize: '0.8rem', color: '#475569', padding: '6px 14px', borderRadius: '20px', background: '#f1f5f9', border: '1px solid #e2e8f0', textDecoration: 'none', transition: 'all 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#2563eb' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569' }}>
+                
+                >
                 {w.name_fr}
               </Link>
             ))}
