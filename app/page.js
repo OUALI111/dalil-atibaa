@@ -52,7 +52,7 @@ export default async function HomePage() {
             Trouvez votre médecin en Algérie
           </h2>
           <p className="text-blue-100 text-lg mb-8">
-            Annuaire complet de {totalDoctors} médecins dans toutes les wilayas
+            Recherchez facilement un médecin ou un spécialiste près de chez vous.
           </p>
 
           <form action="/recherche" method="GET"
@@ -130,10 +130,14 @@ export default async function HomePage() {
       Annuaire médical en Algérie
     </h2>
     <p className="text-gray-600 mb-6">
-      Dalil Atibaa est le premier annuaire médical en ligne dédié à l Algérie.
-      Trouvez rapidement un médecin dans votre wilaya, consultez ses coordonnées,
-      son adresse et prenez rendez-vous directement par téléphone.
-      Notre base de données recense plus de 1000 médecins dans les 58 wilayas d Algérie.
+      Dalil Atibaa est un annuaire médical en ligne dédié à la recherche de médecins en Algérie. 
+      La plateforme permet aux patients de trouver rapidement un médecin par spécialité et par wilaya, d’accéder à ses coordonnées, 
+      à l’adresse de son cabinet et de le contacter directement par téléphone pour prendre rendez-vous. Que vous recherchiez un médecin généraliste, un cardiologue, un dermatologue, un pédiatre ou un autre spécialiste, Dalil Atibaa facilite l’accès à l’information médicale locale et vous aide à identifier les professionnels de santé disponibles près de chez vous.
+
+Grâce à une base de données en constante évolution, 
+l’annuaire recense aujourd’hui plus de 5000 médecins répartis dans les 58 wilayas d’Algérie. 
+Chaque fiche médecin présente les informations essentielles pour permettre aux patients de trouver facilement un professionnel de santé selon leur besoin et leur localisation. L’objectif de Dalil Atibaa est de simplifier la recherche de médecins en Algérie et d’offrir un accès rapide et fiable aux coordonnées des praticiens dans toutes les régions du pays.
+
     </p>
     <h3 className="text-xl font-bold text-gray-800 mb-4">
       Questions fréquentes
