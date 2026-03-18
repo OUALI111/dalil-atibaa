@@ -1,41 +1,7 @@
-// ══════════════════════════════════════════
-// نظام Redirects المركزي
-// أضف كل redirect هنا فقط
-// ══════════════════════════════════════════
-
 const redirectsList = [
-
   // ══════════════════════════════
-  // Redirects قديمة — أمثلة
+  // Redirections techniques — 301
   // ══════════════════════════════
-
-  // إذا غيّرت slug طبيب
-  // {
-  //   source: '/docteur/ancien-slug',
-  //   destination: '/docteur/nouveau-slug',
-  //   permanent: true,
-  // },
-
-  // إذا غيّرت اسم ولاية
-  // {
-  //   source: '/wilayas/alger',
-  //   destination: '/wilayas/alger-capital',
-  //   permanent: true,
-  // },
-
-  // ══════════════════════════════
-  // Redirects تقنية — لا تحذف
-  // ══════════════════════════════
-  {
-    source: '/:path*.html',
-    destination: '/:path*',
-    permanent: true,
-  },
-  {
-    source: '/:path*.php',
-    destination: '/:path*',
-    permanent: true,
-  },
   {
     source: '/index.html',
     destination: '/',
@@ -47,10 +13,32 @@ const redirectsList = [
     permanent: true,
   },
   {
+    source: '/:path*.html',
+    destination: '/:path*',
+    permanent: true,
+  },
+  {
+    source: '/:path*.php',
+    destination: '/:path*',
+    permanent: true,
+  },
+  // ══════════════════════════════
+  // Sitemap doctors — 302 temporaire
+  // ══════════════════════════════
+  {
     source: '/sitemap-doctors-:page.xml',
     destination: '/api/sitemap-doctors/:page',
     permanent: false,
   },
+  // ══════════════════════════════
+  // Anciennes URLs — ajoute ici
+  // ══════════════════════════════
+  // Exemple:
+  // {
+  //   source: '/medecins/:path*',
+  //   destination: '/docteur/:path*',
+  //   permanent: true,
+  // },
 ]
 
 module.exports = redirectsList
