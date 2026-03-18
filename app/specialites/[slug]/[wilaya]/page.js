@@ -31,18 +31,25 @@ export default async function SpecialiteWilayaPage({ params }) {
 
   if (!specialty || !wilayaData) notFound()
 
-  const { data: doctors } = await supabase
+  const pageSize = 24
+const currentPage = parseInt((await params).page || '0')
+const from = currentPage * pageSize
+const to = from + pageSize - 1
+
+const { data: doctors, count: totalDoctors } = await supabase
     .from('doctors')
     .select(`
       id, name_fr, slug, address, phone, rating,
       specialties(name_fr),
       wilayas(name_fr)
-    `)
+    `, { count: 'exact' })
     .eq('specialty_id', specialty.id)
     .eq('wilaya_id', wilayaData.id)
     .eq('is_active', true)
     .order('rating', { ascending: false })
-    .limit(48)
+    .range(from, to)
+
+const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -199,6 +206,34 @@ export default async function SpecialiteWilayaPage({ params }) {
           </div>
         </div>
       </div>
+
+{totalPages > 1 && (
+  <div className="flex justify-center gap-2 mt-8 flex-wrap">
+    {currentPage > 0 && (
+      <a href={`/specialites/${slug}/${wilaya}?page=${currentPage - 1}`}
+        className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 transition">
+        Précédent
+      </a>
+    )}
+    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => (
+      <a key={i}
+        href={`/specialites/${slug}/${wilaya}?page=${i}`}
+        className={`px-4 py-2 rounded-xl border transition ${
+          i === currentPage
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50'
+        }`}>
+        {i + 1}
+      </a>
+    ))}
+    {currentPage < totalPages - 1 && (
+      <a href={`/specialites/${slug}/${wilaya}?page=${currentPage + 1}`}
+        className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 transition">
+        Suivant
+      </a>
+    )}
+  </div>
+)}
 
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
         <p>2025 Dalil Atibaa - Annuaire des medecins en Algerie</p>
