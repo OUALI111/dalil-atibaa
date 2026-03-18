@@ -13,16 +13,21 @@ export async function generateMetadata({ params }) {
   if (!specialty || !wilayaData) return { title: 'Page introuvable' }
 
   return {
-    title: `${specialty.name_fr} à ${wilayaData.name_fr} | Dalil Atibaa`,
-    description: `Trouvez les meilleurs ${specialty.name_fr} à ${wilayaData.name_fr}. Adresses, téléphones et avis patients.`,
+    title: `${specialty.name_fr} a ${wilayaData.name_fr} | Dalil Atibaa`,
+    description: `Trouvez les meilleurs ${specialty.name_fr} a ${wilayaData.name_fr}. Adresses, telephones et avis patients.`,
     alternates: {
       canonical: `https://dalil-atibaa.vercel.app/specialites/${slug}/${wilaya}`,
     },
   }
 }
 
-export default async function SpecialiteWilayaPage({ params }) {
+export default async function SpecialiteWilayaPage({ params, searchParams }) {
   const { slug, wilaya } = await params
+  const sp = await searchParams
+  const currentPage = parseInt(sp?.page || '0')
+  const pageSize = 24
+  const from = currentPage * pageSize
+  const to = from + pageSize - 1
 
   const { data: specialty } = await supabase
     .from('specialties').select('*').eq('slug', slug).single()
@@ -31,12 +36,7 @@ export default async function SpecialiteWilayaPage({ params }) {
 
   if (!specialty || !wilayaData) notFound()
 
-  const pageSize = 24
-const currentPage = parseInt((await params).page || '0')
-const from = currentPage * pageSize
-const to = from + pageSize - 1
-
-const { data: doctors, count: totalDoctors } = await supabase
+  const { data: doctors, count: totalDoctors } = await supabase
     .from('doctors')
     .select(`
       id, name_fr, slug, address, phone, rating,
@@ -49,16 +49,16 @@ const { data: doctors, count: totalDoctors } = await supabase
     .order('rating', { ascending: false })
     .range(from, to)
 
-const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
+  const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: `${specialty.name_fr} à ${wilayaData.name_fr}`,
-    numberOfItems: doctors?.length || 0,
+    name: `${specialty.name_fr} a ${wilayaData.name_fr}`,
+    numberOfItems: totalDoctors || 0,
     itemListElement: doctors?.map((d, i) => ({
       '@type': 'ListItem',
-      position: i + 1,
+      position: from + i + 1,
       name: d.name_fr,
       url: `https://dalil-atibaa.vercel.app/docteur/${d.slug}`,
     }))
@@ -80,11 +80,8 @@ const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
         </div>
       </header>
 
-      {/* BREADCRUMB */}
       <div className="max-w-6xl mx-auto px-4 py-3 text-sm text-gray-500 flex gap-2 flex-wrap">
         <Link href="/" className="hover:text-blue-600">Accueil</Link>
-        <span>›</span>
-        <Link href="/specialites" className="hover:text-blue-600">Spécialités</Link>
         <span>›</span>
         <Link href={`/specialites/${slug}`} className="hover:text-blue-600">
           {specialty.name_fr}
@@ -93,28 +90,26 @@ const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
         <span className="text-gray-800">{wilayaData.name_fr}</span>
       </div>
 
-      {/* HERO */}
       <div className="bg-blue-700 text-white py-10 px-4">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold">
-            {specialty.name_fr} à {wilayaData.name_fr}
+            {specialty.name_fr} a {wilayaData.name_fr}
           </h1>
           <p className="text-blue-100 mt-2">
-            {doctors?.length || 0} médecin(s) disponible(s)
+            {totalDoctors || 0} medecin(s) disponible(s)
           </p>
         </div>
       </div>
 
-      {/* LISTE */}
       <div className="max-w-6xl mx-auto px-4 py-8">
         {!doctors || doctors.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-400 text-xl mb-4">
-              Aucun {specialty.name_fr} trouvé à {wilayaData.name_fr}
+              Aucun {specialty.name_fr} trouve a {wilayaData.name_fr}
             </p>
             <Link href={`/specialites/${slug}`}
               className="text-blue-600 hover:underline">
-              Voir tous les {specialty.name_fr} en Algérie
+              Voir tous les {specialty.name_fr} en Algerie
             </Link>
           </div>
         ) : (
@@ -156,24 +151,52 @@ const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
           </div>
         )}
 
-        {/* SEO CONTENT */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 mt-8 flex-wrap">
+            {currentPage > 0 && (
+              <a href={`/specialites/${slug}/${wilaya}?page=${currentPage - 1}`}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 transition">
+                Precedent
+              </a>
+            )}
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              const pageNum = Math.max(0, Math.min(currentPage - 3, totalPages - 7)) + i
+              return (
+                <a key={pageNum}
+                  href={`/specialites/${slug}/${wilaya}?page=${pageNum}`}
+                  className={`px-4 py-2 rounded-xl border transition ${
+                    pageNum === currentPage
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50'
+                  }`}>
+                  {pageNum + 1}
+                </a>
+              )
+            })}
+            {currentPage < totalPages - 1 && (
+              <a href={`/specialites/${slug}/${wilaya}?page=${currentPage + 1}`}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 transition">
+                Suivant
+              </a>
+            )}
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl p-6 shadow-sm mt-8">
           <h2 className="text-xl font-bold text-gray-800 mb-4">
-            Trouver un {specialty.name_fr} à {wilayaData.name_fr}
+            Trouver un {specialty.name_fr} a {wilayaData.name_fr}
           </h2>
           <p className="text-gray-600 mb-4">
-            Consultez la liste complète des {specialty.name_fr} à {wilayaData.name_fr}.
-            Trouvez facilement un {specialty.name_fr} avec adresse, numéro de téléphone
-            et avis patients. Prenez rendez-vous rapidement.
+            Consultez la liste complete des {specialty.name_fr} a {wilayaData.name_fr}.
+            Trouvez facilement un {specialty.name_fr} avec adresse et numero de telephone.
           </p>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-xl p-4">
               <p className="font-medium text-gray-700 mb-1">
-                Comment choisir un {specialty.name_fr} à {wilayaData.name_fr} ?
+                Comment choisir un {specialty.name_fr} a {wilayaData.name_fr} ?
               </p>
               <p className="text-gray-500 text-sm">
-                Consultez les notes et avis patients pour chaque {specialty.name_fr}
-                à {wilayaData.name_fr} sur Dalil Atibaa.
+                Consultez les notes et avis patients pour chaque {specialty.name_fr} sur Dalil Atibaa.
               </p>
             </div>
             <div className="bg-gray-50 rounded-xl p-4">
@@ -181,62 +204,32 @@ const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
                 Comment prendre rendez-vous ?
               </p>
               <p className="text-gray-500 text-sm">
-                Cliquez sur la fiche du {specialty.name_fr} pour voir son numéro
-                et prendre rendez-vous directement.
+                Cliquez sur la fiche du medecin pour voir son numero et prendre rendez-vous.
               </p>
             </div>
           </div>
         </div>
 
-        {/* LIENS WILAYAS SIMILAIRES */}
         <div className="bg-white rounded-2xl p-6 shadow-sm mt-4">
           <h2 className="text-lg font-bold text-gray-800 mb-4">
             {specialty.name_fr} dans d autres wilayas
           </h2>
           <div className="flex flex-wrap gap-2">
             {['alger', 'oran', 'constantine', 'annaba', 'blida', 'batna',
-              'setif', 'tizi-ouzou', 'bejaia', 'tlemcen'].map(w => (
-              w !== wilaya && (
+              'setif', 'tizi-ouzou', 'bejaia', 'tlemcen'].map(w =>
+              w !== wilaya ? (
                 <Link key={w} href={`/specialites/${slug}/${w}`}
                   className="bg-gray-50 border border-gray-200 text-gray-600 px-3 py-1 rounded-full text-sm hover:bg-blue-50 hover:text-blue-600 transition">
                   {w.charAt(0).toUpperCase() + w.slice(1).replace('-', ' ')}
                 </Link>
-              )
-            ))}
+              ) : null
+            )}
           </div>
         </div>
       </div>
 
-{totalPages > 1 && (
-  <div className="flex justify-center gap-2 mt-8 flex-wrap">
-    {currentPage > 0 && (
-      <a href={`/specialites/${slug}/${wilaya}?page=${currentPage - 1}`}
-        className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 transition">
-        Précédent
-      </a>
-    )}
-    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => (
-      <a key={i}
-        href={`/specialites/${slug}/${wilaya}?page=${i}`}
-        className={`px-4 py-2 rounded-xl border transition ${
-          i === currentPage
-            ? 'bg-blue-600 text-white border-blue-600'
-            : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50'
-        }`}>
-        {i + 1}
-      </a>
-    ))}
-    {currentPage < totalPages - 1 && (
-      <a href={`/specialites/${slug}/${wilaya}?page=${currentPage + 1}`}
-        className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 transition">
-        Suivant
-      </a>
-    )}
-  </div>
-)}
-
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
-        <p>2025 Dalil Atibaa - Annuaire des medecins en Algerie</p>
+        2025 Dalil Atibaa - Annuaire des medecins en Algerie
       </footer>
 
     </main>
