@@ -323,7 +323,12 @@ export default async function HomePage() {
             </div>
           </div>
           <div style={{ textAlign: 'center', fontSize: '0.8rem' }}>
-            © 2025 Dalil Atibaa — Annuaire des médecins en Algérie
+            <div style={{display:'flex', gap:'16px', justifyContent:'center', marginBottom:'12px', flexWrap:'wrap'}}>
+  <Link href="/a-propos" style={{color:'#94a3b8', textDecoration:'none'}}>A propos</Link>
+  <Link href="/contact" style={{color:'#94a3b8', textDecoration:'none'}}>Contact</Link>
+  <Link href="/recherche" style={{color:'#94a3b8', textDecoration:'none'}}>Recherche</Link>
+</div>
+© 2025 Dalil Atibaa — Annuaire des médecins en Algérie
           </div>
         </div>
       </footer>
