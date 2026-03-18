@@ -22,11 +22,9 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
-    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Adresse: ${doctor.address || doctor.wilayas?.name_fr}. Prenez rendez-vous en ligne.`,
+    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez rendez-vous en ligne.`,
     keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
-    alternates: {
-      canonical: `https://dalil-atibaa.vercel.app/docteur/${slug}`,
-    },
+    alternates: { canonical: `https://dalil-atibaa.vercel.app/docteur/${slug}` },
     openGraph: {
       title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}`,
       description: `Services: ${servicesText}`,
@@ -59,7 +57,7 @@ export default async function DoctorPage({ params }) {
 
   const { data: similar } = await supabase
     .from('doctors')
-    .select('id, name_fr, slug, rating, phone, address, specialties(name_fr), wilayas(name_fr)')
+    .select('id, name_fr, slug, rating, specialties(name_fr), wilayas(name_fr)')
     .eq('specialty_id', doctor.specialty_id)
     .eq('wilaya_id', doctor.wilaya_id)
     .neq('id', doctor.id)
@@ -67,6 +65,7 @@ export default async function DoctorPage({ params }) {
     .limit(6)
 
   const stars = Math.round(doctor.rating || 0)
+  const whatsappNumber = doctor.phone?.replace(/\D/g, '').replace(/^0/, '213')
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -76,8 +75,6 @@ export default async function DoctorPage({ params }) {
         '@id': `https://dalil-atibaa.vercel.app/docteur/${doctor.slug}`,
         name: doctor.name_fr,
         medicalSpecialty: doctor.specialties?.name_fr,
-        description: `${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}`,
-        url: `https://dalil-atibaa.vercel.app/docteur/${doctor.slug}`,
         telephone: doctor.phone,
         address: {
           '@type': 'PostalAddress',
@@ -91,14 +88,6 @@ export default async function DoctorPage({ params }) {
           bestRating: 5,
           worstRating: 1,
           ratingCount: doctor.reviews_count || 1,
-        } : undefined,
-        hasOfferCatalog: services?.length > 0 ? {
-          '@type': 'OfferCatalog',
-          name: `Services de ${doctor.specialties?.name_fr}`,
-          itemListElement: services.map(s => ({
-            '@type': 'Offer',
-            itemOffered: { '@type': 'MedicalProcedure', name: s.name_fr }
-          }))
         } : undefined,
       },
       {
@@ -128,8 +117,6 @@ export default async function DoctorPage({ params }) {
     ]
   }
 
-  const whatsappNumber = doctor.phone?.replace(/\D/g, '').replace(/^0/, '213')
-
   return (
     <main className="min-h-screen bg-gray-50">
 
@@ -138,24 +125,21 @@ export default async function DoctorPage({ params }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* HEADER */}
       <header className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="text-2xl font-bold text-blue-700">
             Dalil Atibaa
-          
+          </Link>
           <Link href="/recherche"
-  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-  {'Rechercher'}
-</Link>
-
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            Rechercher
+          </Link>
         </div>
       </header>
 
-      {/* BREADCRUMB */}
       <div className="max-w-5xl mx-auto px-4 py-3 text-sm text-gray-400 flex gap-2 flex-wrap items-center">
         <Link href="/" className="hover:text-blue-600 transition">Accueil</Link>
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -168,10 +152,8 @@ export default async function DoctorPage({ params }) {
 
       <div className="max-w-5xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* COLONNE PRINCIPALE */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* CARTE PRINCIPALE */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-start gap-5">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-3xl shrink-0 shadow-md">
@@ -195,8 +177,6 @@ export default async function DoctorPage({ params }) {
                     </span>
                   )}
                 </div>
-
-                {/* RATING */}
                 <div className="flex items-center gap-2 mt-3">
                   <div className="flex items-center gap-0.5">
                     {[1,2,3,4,5].map(i => (
@@ -211,7 +191,6 @@ export default async function DoctorPage({ params }) {
               </div>
             </div>
 
-            {/* INFOS */}
             <div className="mt-5 pt-5 border-t border-gray-100 space-y-3">
               {doctor.wilayas && (
                 <div className="flex items-center gap-3 text-gray-600">
@@ -241,7 +220,6 @@ export default async function DoctorPage({ params }) {
               )}
             </div>
 
-            {/* BOUTONS MOBILE */}
             <div className="mt-5 flex gap-3 lg:hidden">
               <a href={`tel:${doctor.phone}`}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition text-sm">
@@ -262,7 +240,6 @@ export default async function DoctorPage({ params }) {
             </div>
           </div>
 
-          {/* NOS SERVICES */}
           {services && services.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
@@ -285,7 +262,6 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {/* LOCALISATION */}
           {doctor.latitude && doctor.longitude && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -294,23 +270,17 @@ export default async function DoctorPage({ params }) {
                 </svg>
                 Localisation
               </h2>
-              <a
-                href={doctor.google_map_url || `https://maps.google.com/maps?q=${doctor.latitude},${doctor.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <a href={doctor.google_map_url || `https://maps.google.com/maps?q=${doctor.latitude},${doctor.longitude}`}
+                target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition group">
-                <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm group-hover:border-blue-300">
+                <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
                   <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800 group-hover:text-blue-700 transition">
-                    Voir sur Google Maps
-                  </p>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    {doctor.address || doctor.wilayas?.name_fr}
-                  </p>
+                  <p className="font-medium text-gray-800 group-hover:text-blue-700 transition">Voir sur Google Maps</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{doctor.address || doctor.wilayas?.name_fr}</p>
                 </div>
                 <svg className="w-5 h-5 text-gray-400 ml-auto group-hover:text-blue-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -319,7 +289,6 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {/* MEDECINS SIMILAIRES */}
           {similar && similar.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-4">
@@ -331,10 +300,9 @@ export default async function DoctorPage({ params }) {
                 </h2>
                 <Link href={`/specialites/${doctor.specialties?.slug}/${doctor.wilayas?.slug}`}
                   className="text-sm text-blue-600 hover:underline font-medium">
-                  Voir tous →
+                  Voir tous
                 </Link>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {similar.map(s => (
                   <Link key={s.id} href={`/docteur/${s.slug}`}>
@@ -358,7 +326,6 @@ export default async function DoctorPage({ params }) {
             </div>
           )}
 
-          {/* SEO CONTENT */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-3">
               {doctor.name_fr} - {doctor.specialties?.name_fr} a {doctor.wilayas?.name_fr}
@@ -370,21 +337,13 @@ export default async function DoctorPage({ params }) {
             </p>
             <div className="space-y-3">
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="font-medium text-gray-700 text-sm mb-1">
-                  Comment prendre rendez-vous avec {doctor.name_fr} ?
-                </p>
-                <p className="text-gray-500 text-sm">
-                  Appelez directement au {doctor.phone || 'numero disponible'} pour prendre rendez-vous a {doctor.wilayas?.name_fr}.
-                </p>
+                <p className="font-medium text-gray-700 text-sm mb-1">Comment prendre rendez-vous avec {doctor.name_fr} ?</p>
+                <p className="text-gray-500 text-sm">Appelez directement au {doctor.phone || 'numero disponible'} pour prendre rendez-vous a {doctor.wilayas?.name_fr}.</p>
               </div>
               {services && services.length > 0 && (
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="font-medium text-gray-700 text-sm mb-1">
-                    Quels services propose {doctor.name_fr} ?
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    {services.map(s => s.name_fr).join(', ')}.
-                  </p>
+                  <p className="font-medium text-gray-700 text-sm mb-1">Quels services propose {doctor.name_fr} ?</p>
+                  <p className="text-gray-500 text-sm">{services.map(s => s.name_fr).join(', ')}.</p>
                 </div>
               )}
             </div>
@@ -392,13 +351,10 @@ export default async function DoctorPage({ params }) {
 
         </div>
 
-        {/* SIDEBAR */}
         <div className="space-y-4">
 
-          {/* RENDEZ-VOUS */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-4">
             <h2 className="font-bold text-gray-900 mb-4 text-center">Prendre rendez-vous</h2>
-
             <a href={`tel:${doctor.phone}`}
               className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition mb-3">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -406,8 +362,7 @@ export default async function DoctorPage({ params }) {
               </svg>
               Appeler
             </a>
-
-            {whatsappNumber && (
+            {doctor.phone && (
               <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold transition">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -418,7 +373,6 @@ export default async function DoctorPage({ params }) {
             )}
           </div>
 
-          {/* INFORMATIONS */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <h2 className="font-bold text-gray-900 mb-4">Informations</h2>
             <div className="space-y-3">
@@ -452,14 +406,12 @@ export default async function DoctorPage({ params }) {
             </div>
           </div>
 
-          {/* MOTS CLES */}
           {services && services.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <p className="text-sm font-semibold text-gray-700 mb-3">Mots-cles</p>
               <div className="flex flex-wrap gap-1.5">
                 {services.map(s => (
-                  <span key={s.slug}
-                    className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full border border-gray-200">
+                  <span key={s.slug} className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full border border-gray-200">
                     {s.name_fr}
                   </span>
                 ))}
