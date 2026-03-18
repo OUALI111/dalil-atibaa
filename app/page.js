@@ -88,7 +88,7 @@ export default async function HomePage() {
             Recherchez parmi {totalDoctors?.toLocaleString()} médecins dans les 58 wilayas d'Algérie
           </p>
 
-          <form action="/recherche" method="GET" style={{ background: 'white', borderRadius: '20px', padding: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+          <form action="/recherche" method="GET" style={{ background: 'white', borderRadius: '20px', padding: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '8px', alignItems: 'center' }}>
             <div style={{ flex: '1', minWidth: '180px', display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', borderRadius: '12px', padding: '0 14px', border: '2px solid #e2e8f0' }}>
               <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -122,7 +122,7 @@ export default async function HomePage() {
                 ))}
               </select>
             </div>
-            <button type="submit" style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: 'white', padding: '14px 28px', borderRadius: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button type="submit" style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: 'white', padding: '14px 20px', borderRadius: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px', height: '100%' }}>
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
