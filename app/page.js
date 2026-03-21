@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Dalil Atibaa | Trouvez un Médecin en Algérie & Prendre un Rendez-vous',
+  title: 'Dalil Atibaa | Trouvez un Médecin en Algérie & Prenez un Rendez-vous',
   description: 'Trouvez un médecin en Algérie parmi des professionnels de santé référencés. Dentistes, cardiologues, gynécologues dans les 58 wilayas. Adresses et téléphones disponibles.',
   keywords: 'médecin algérie, annuaire médical algérie, trouver médecin, dentiste algérie, cardiologue algérie, wilaya',
   alternates: {
