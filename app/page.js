@@ -2,8 +2,8 @@ import { supabase } from '../lib/supabase'
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Dalil Atibaa — Annuaire des Médecins en Algérie | 1500+ Médecins',
-  description: 'Trouvez un médecin en Algérie parmi 1500+ professionnels de santé référencés. Dentistes, cardiologues, gynécologues dans les 58 wilayas. Adresses et téléphones disponibles.',
+  title: 'Dalil Atibaa | Trouvez un Médecin en Algérie & Prendre un Rendez-vous',
+  description: 'Trouvez un médecin en Algérie parmi des professionnels de santé référencés. Dentistes, cardiologues, gynécologues... dans les 58 wilayas. Adresses et téléphones disponibles.',
   keywords: 'médecin algérie, annuaire médical algérie, trouver médecin, dentiste algérie, cardiologue algérie, wilaya',
   alternates: {
     canonical: 'https://dalil-atibaa.vercel.app',
@@ -375,10 +375,25 @@ export default async function HomePage() {
             <h3 className="text-xl font-bold text-gray-800 mb-4">Questions fréquentes</h3>
             <div className="grid md:grid-cols-2 gap-4">
               {[
-                { q: 'Comment trouver un médecin près de chez moi ?', a: 'Sélectionnez votre wilaya et la spécialité souhaitée. Les résultats sont triés par note.' },
-                { q: 'Est-ce que Dalil Atibaa est gratuit ?', a: 'Oui, la consultation est entièrement gratuite pour les patients.' },
-                { q: 'Quelles wilayas sont couvertes ?', a: `Dalil Atibaa couvre actuellement ${wilayas?.length} wilayas d'Algérie avec des médecins référencés.` },
-                { q: 'Comment ajouter mon cabinet ?', a: 'Contactez-nous pour référencer votre cabinet et être visible par des milliers de patients.' },
+                [
+  { q: 'Comment trouver un médecin près de chez moi ?', a: 'Sélectionnez votre wilaya et la spécialité souhaitée pour trouver rapidement un médecin près de vous en Algérie. Les résultats sont triés pour vous aider à choisir facilement.' 
+  },
+  { q: 'Est-ce que Dalil Atibaa est gratuit ?',a: 'Oui, la recherche de médecins et la prise de rendez-vous en ligne sur Dalil Atibaa sont entièrement gratuites pour les patients.' 
+  },
+  {q: "Pourquoi utiliser Dalil Atibaa ?",a: "Dalil Atibaa vous permet de trouver rapidement un médecin en Algérie, comparer les profils et réserver un rendez-vous en ligne sans appel téléphonique."
+  },
+  {q: "Comment contacter un médecin ?",a: "Chaque fiche médecin contient les informations essentielles comme le numéro de téléphone, l’adresse du cabinet et les détails pour prendre rendez-vous facilement."
+  },
+  {q: 'Comment ajouter mon cabinet ?', a: 'Contactez-nous pour référencer votre cabinet et être visible par des milliers de patients.'  
+  },
+  {q: "Comment prendre rendez-vous avec un médecin ?",a: "Choisissez un médecin, sélectionnez un créneau disponible et confirmez votre rendez-vous en ligne en quelques clics." 
+  },
+  {q: "Peut-on rechercher un médecin par spécialité et wilaya en Algérie ?",a: "Oui, Dalil Atibaa vous permet de rechercher facilement un médecin en Algérie par spécialité et par wilaya afin de trouver rapidement un professionnel de santé près de vous." 
+  },
+  {q: "Est-il possible de prendre un rendez-vous médical en ligne en Algérie ?", a: "Oui, vous pouvez prendre un rendez-vous médical en ligne en Algérie directement sur Dalil Atibaa en choisissant le médecin et le créneau disponible." 
+  },
+
+]
               ].map((item, i) => (
                 <div key={i} className="bg-white rounded-xl p-4 shadow-sm">
                   <p className="font-semibold text-gray-700 mb-2 text-sm">{item.q}</p>
