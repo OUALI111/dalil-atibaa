@@ -140,9 +140,10 @@ export default async function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      <main className="min-h-screen bg-gray-50">
 
       {/* ═══ HEADER ═══ */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -415,5 +416,6 @@ export default async function HomePage() {
       </footer>
 
     </main>
+    </>
   )
 }
