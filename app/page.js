@@ -2,10 +2,24 @@ import { supabase } from '../lib/supabase'
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Dalil Atibaa - Annuaire des Médecins en Algérie',
-  description: 'Annuaire de médecins en Algérie. Trouvez un médecin par wilaya et spécialité. Adresses et téléphones.',
+  title: 'Dalil Atibaa — Annuaire des Médecins en Algérie | 1500+ Médecins',
+  description: 'Trouvez un médecin en Algérie parmi 1500+ professionnels de santé référencés. Dentistes, cardiologues, gynécologues dans les 58 wilayas. Adresses et téléphones disponibles.',
+  keywords: 'médecin algérie, annuaire médical algérie, trouver médecin, dentiste algérie, cardiologue algérie, wilaya',
   alternates: {
     canonical: 'https://dalil-atibaa.vercel.app',
+  },
+  openGraph: {
+    title: 'Dalil Atibaa — Annuaire des Médecins en Algérie',
+    description: 'Trouvez un médecin en Algérie parmi 1500+ professionnels. Dentistes, cardiologues, gynécologues dans les 58 wilayas.',
+    url: 'https://dalil-atibaa.vercel.app',
+    siteName: 'Dalil Atibaa',
+    locale: 'fr_DZ',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Dalil Atibaa — Annuaire des Médecins en Algérie',
+    description: 'Trouvez un médecin en Algérie parmi 1500+ professionnels dans les 58 wilayas.',
   },
 }
 
@@ -93,8 +107,42 @@ export default async function HomePage() {
   const popularWilayas = wilayas?.filter(w => popularWilayaSlugs.includes(w.slug)) || []
   const otherWilayas = wilayas?.filter(w => !popularWilayaSlugs.includes(w.slug)) || []
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        url: "https://dalil-atibaa.vercel.app",
+        name: "Dalil Atibaa",
+        description: "Annuaire des médecins en Algérie",
+        inLanguage: "fr-DZ",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: { "@type": "EntryPoint", urlTemplate: "https://dalil-atibaa.vercel.app/recherche?q={search_term_string}" },
+          "query-input": "required name=search_term_string",
+        },
+      },
+      {
+        "@type": "Organization",
+        name: "Dalil Atibaa",
+        url: "https://dalil-atibaa.vercel.app",
+        description: `Annuaire médical de référence en Algérie. ${totalDoctors} médecins référencés.`,
+        areaServed: { "@type": "Country", name: "Algeria" },
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: [
+          { "@type": "Question", name: "Comment trouver un médecin en Algérie ?", acceptedAnswer: { "@type": "Answer", text: "Utilisez Dalil Atibaa. Sélectionnez votre wilaya et spécialité pour trouver les médecins près de chez vous." } },
+          { "@type": "Question", name: "Est-ce que Dalil Atibaa est gratuit ?", acceptedAnswer: { "@type": "Answer", text: "Oui, la consultation est entièrement gratuite pour les patients." } },
+        ],
+      },
+    ],
+  }
+
   return (
     <main className="min-h-screen bg-gray-50">
+
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* ═══ HEADER ═══ */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
