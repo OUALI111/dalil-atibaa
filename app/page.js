@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata = {
   title: 'Dalil Atibaa - Annuaire des Médecins en Algérie',
-  description: 'Annuaire de médecins en Algérie. Trouvez un médecin par wilaya et spécialité. Adresses et téléphones.',
+  description: 'Annuaire de 1021 médecins en Algérie. Trouvez un médecin par wilaya et spécialité. Adresses et téléphones.',
   alternates: {
     canonical: 'https://dalil-atibaa.vercel.app',
   },
@@ -28,41 +28,76 @@ async function getStats() {
 }
 
 const specialtyIcons = {
-  dentiste: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
-  cardiologue: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
-  ophtalmologue: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
-  pediatre: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
-  gynecologue: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
-  generaliste: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
-  default: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
+  dentiste: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6c-2.5 0-4.5 1.5-4.5 4 0 1.5.5 3 1 4.5.5 1.5 1 3 1.5 3s.5-.5 1-1.5c.5 1 .5 1.5 1 1.5s1-1.5 1.5-3c.5-1.5 1-3 1-4.5 0-2.5-2-4-4.5-4z" />
+    </svg>
+  ),
+  cardiologue: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+    </svg>
+  ),
+  pediatre: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  ),
+  gynecologue: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  ),
+  generaliste: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    </svg>
+  ),
+  ophtalmologue: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+    </svg>
+  ),
 }
+
+const popularWilayas = [
+  { slug: 'alger', name: 'Alger' },
+  { slug: 'oran', name: 'Oran' },
+  { slug: 'constantine', name: 'Constantine' },
+  { slug: 'annaba', name: 'Annaba' },
+  { slug: 'blida', name: 'Blida' },
+  { slug: 'batna', name: 'Batna' },
+  { slug: 'setif', name: 'Sétif' },
+  { slug: 'tizi-ouzou', name: 'Tizi Ouzou' },
+]
 
 export default async function HomePage() {
   const { totalDoctors, specialties, wilayas } = await getStats()
 
-  const topSpecialties = specialties?.slice(0, 8) || []
-  const topWilayas = ['alger', 'oran', 'constantine', 'annaba', 'blida', 'batna', 'setif', 'tizi-ouzou', 'bejaia', 'tlemcen', 'medea', 'mostaganem']
+  const topSpecialties = ['dentiste', 'cardiologue', 'pediatre', 'gynecologue', 'generaliste', 'ophtalmologue']
 
   return (
-    <main className="min-h-screen" style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", background: '#f8fafc' }}>
+    <main className="min-h-screen bg-gray-50">
 
-      {/* HEADER */}
-      <header style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '64px' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-            <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" fill="none" stroke="white" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      {/* ═══════════════════ HEADER ═══════════════════ */}
+      <header className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
               </svg>
             </div>
-            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e40af', letterSpacing: '-0.5px' }}>Dalil Atibaa</span>
+            <span className="text-xl font-bold text-gray-900">Dalil Atibaa</span>
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b', background: '#f1f5f9', padding: '4px 10px', borderRadius: '20px' }}>
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
               🇩🇿 {totalDoctors?.toLocaleString()} médecins
             </span>
-            <Link href="/recherche" style={{ background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '10px', fontSize: '0.875rem', fontWeight: '600', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link href="/recherche"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               Rechercher
@@ -71,69 +106,85 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* HERO */}
-      <section style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%)', padding: '80px 1rem', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '400px', height: '400px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }}></div>
-        <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', width: '300px', height: '300px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }}></div>
+      {/* ═══════════════════ HERO ═══════════════════ */}
+      <section className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white py-14 px-4 relative overflow-hidden">
+        {/* Cercles décoratifs */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-x-1/3 translate-y-1/3 pointer-events-none" />
 
-        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', color: 'white', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.2)' }}>
-            ✓ Annuaire médical de référence en Algérie
+        <div className="max-w-4xl mx-auto text-center relative">
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium mb-6">
+            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            Annuaire médical de référence en Algérie
           </div>
-          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: '900', color: 'white', marginBottom: '16px', lineHeight: '1.1', letterSpacing: '-1px' }}>
+
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
             Trouvez votre médecin<br />
-            <span style={{ color: '#93c5fd' }}>en Algérie</span>
+            <span className="text-blue-200">en Algérie</span>
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '1.1rem', marginBottom: '40px', lineHeight: '1.6' }}>
-            Recherchez parmi {totalDoctors?.toLocaleString()} médecins dans les 58 wilayas d'Algérie
+          <p className="text-blue-100 text-lg mb-10">
+            Recherchez parmi {totalDoctors?.toLocaleString()} médecins dans les 58 wilayas
           </p>
 
-          <form action="/recherche" method="GET" style={{ background: 'white', borderRadius: '20px', padding: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '8px', alignItems: 'center' }}>
-            <div style={{ flex: '1', minWidth: '180px', display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', borderRadius: '12px', padding: '0 14px', border: '2px solid #e2e8f0' }}>
-              <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24">
+          {/* ═══ FORMULAIRE RECHERCHE — MOBILE RESPONSIVE ═══ */}
+          <form action="/recherche" method="GET"
+            className="bg-white rounded-2xl p-3 flex flex-col md:flex-row gap-3 shadow-2xl">
+
+            {/* Input nom */}
+            <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-white">
+              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 name="q"
                 type="text"
                 placeholder="Nom du médecin..."
-                style={{ flex: 1, border: 'none', background: 'transparent', padding: '14px 0', fontSize: '0.95rem', color: '#1e293b', outline: 'none' }}
+                className="w-full text-gray-800 placeholder-gray-400 focus:outline-none text-sm bg-transparent"
               />
             </div>
-            <div style={{ minWidth: '160px', display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', borderRadius: '12px', padding: '0 14px', border: '2px solid #e2e8f0' }}>
-              <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+
+            {/* Select spécialité */}
+            <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-white">
+              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
               </svg>
-              <select name="specialite" style={{ flex: 1, border: 'none', background: 'transparent', padding: '14px 0', fontSize: '0.9rem', color: '#1e293b', outline: 'none', cursor: 'pointer' }}>
+              <select name="specialite"
+                className="w-full text-gray-700 focus:outline-none text-sm bg-transparent appearance-none cursor-pointer">
                 <option value="">Spécialité</option>
                 {specialties?.map(s => (
                   <option key={s.id} value={s.slug}>{s.name_fr}</option>
                 ))}
               </select>
             </div>
-            <div style={{ minWidth: '160px', display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', borderRadius: '12px', padding: '0 14px', border: '2px solid #e2e8f0' }}>
-              <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24">
+
+            {/* Select wilaya */}
+            <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-white">
+              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <select name="wilaya" style={{ flex: 1, border: 'none', background: 'transparent', padding: '14px 0', fontSize: '0.9rem', color: '#1e293b', outline: 'none', cursor: 'pointer' }}>
+              <select name="wilaya"
+                className="w-full text-gray-700 focus:outline-none text-sm bg-transparent appearance-none cursor-pointer">
                 <option value="">Wilaya</option>
                 {wilayas?.map(w => (
                   <option key={w.id} value={w.slug}>{w.name_fr}</option>
                 ))}
               </select>
             </div>
-            <button type="submit" style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: 'white', padding: '14px 20px', borderRadius: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px', height: '100%' }}>
-              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+
+            {/* Bouton */}
+            <button type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition whitespace-nowrap w-full md:w-auto">
               Rechercher
             </button>
           </form>
 
-          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '8px', marginTop: '20px' }}>
+          {/* Quick links spécialités */}
+          <div className="flex flex-wrap justify-center gap-2 mt-6">
             {['Dentiste', 'Cardiologue', 'Pédiatre', 'Gynécologue', 'Généraliste'].map(s => (
-              <Link key={s} href={`/recherche?specialite=${s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}`}
-                style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.3)', textDecoration: 'none', transition: 'all 0.2s' }}>
+              <Link key={s}
+                href={`/recherche?specialite=${s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace('é', 'e').replace('è', 'e')}`}
+                className="bg-white/20 hover:bg-white/30 text-white text-sm px-4 py-1.5 rounded-full transition backdrop-blur-sm">
                 {s}
               </Link>
             ))}
@@ -141,99 +192,78 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* STATS */}
-      <section style={{ background: 'white', borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', textAlign: 'center' }}>
-          {[
-            { num: totalDoctors?.toLocaleString() + '+', label: 'Médecins référencés', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-            { num: '58', label: 'Wilayas couvertes', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' },
-            { num: '24', label: 'Spécialités médicales', icon: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' },
-            { num: '100%', label: 'Accès gratuit', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-          ].map((stat, i) => (
-            <div key={i} style={{ padding: '16px' }}>
-              <div style={{ width: '48px', height: '48px', background: '#eff6ff', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <svg width="24" height="24" fill="none" stroke="#2563eb" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
-                </svg>
-              </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1e40af', lineHeight: 1 }}>{stat.num}</div>
-              <div style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '4px' }}>{stat.label}</div>
-            </div>
-          ))}
+      {/* ═══════════════════ STATS ═══════════════════ */}
+      <section className="bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p className="text-3xl font-bold text-blue-600">{totalDoctors?.toLocaleString()}</p>
+            <p className="text-gray-500 text-sm mt-1">Médecins</p>
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-blue-600">58</p>
+            <p className="text-gray-500 text-sm mt-1">Wilayas</p>
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-blue-600">24</p>
+            <p className="text-gray-500 text-sm mt-1">Spécialités</p>
+          </div>
         </div>
       </section>
 
-      {/* SPECIALITES */}
-      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' }}>
-              Parcourir par spécialité
-            </h2>
-            <p style={{ color: '#64748b', marginTop: '6px', fontSize: '0.95rem' }}>
-              Trouvez rapidement un spécialiste selon votre besoin
-            </p>
-          </div>
-          <Link href="/recherche" style={{ color: '#2563eb', fontWeight: '600', fontSize: '0.875rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            Voir tout →
-          </Link>
+      {/* ═══════════════════ SPÉCIALITÉS ═══════════════════ */}
+      <section className="max-w-6xl mx-auto px-4 py-12">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Parcourir par spécialité</h2>
+        <p className="text-gray-500 mb-6">Trouvez le bon spécialiste près de chez vous</p>
+
+        {/* Top spécialités avec icônes */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-4">
+          {specialties?.filter(s => topSpecialties.includes(s.slug)).map(s => (
+            <Link key={s.id} href={`/specialites/${s.slug}`}
+              className="bg-white rounded-xl p-4 text-center shadow-sm hover:shadow-md hover:border-blue-400 border border-gray-100 transition group">
+              <div className="w-10 h-10 bg-blue-50 group-hover:bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 mx-auto mb-2 transition">
+                {specialtyIcons[s.slug] || (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+                  </svg>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-gray-700 group-hover:text-blue-600 transition leading-tight">{s.name_fr}</p>
+            </Link>
+          ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px', marginTop: '24px' }}>
-          {specialties?.map(s => (
-            <Link key={s.id} href={`/specialites/${s.slug}`} style={{ textDecoration: 'none' }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '20px 12px', textAlign: 'center', border: '2px solid #e2e8f0', transition: 'all 0.2s', cursor: 'pointer' }}
-                
-                >
-                <div style={{ width: '44px', height: '44px', background: '#eff6ff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
-                  <svg width="22" height="22" fill="none" stroke="#2563eb" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={specialtyIcons[s.slug] || specialtyIcons.default} />
-                  </svg>
-                </div>
-                <p style={{ fontSize: '0.8rem', fontWeight: '600', color: '#1e293b', margin: 0, lineHeight: '1.3' }}>{s.name_fr}</p>
-              </div>
+        {/* Toutes les spécialités en chips */}
+        <div className="flex flex-wrap gap-2">
+          {specialties?.filter(s => !topSpecialties.includes(s.slug)).map(s => (
+            <Link key={s.id} href={`/specialites/${s.slug}`}
+              className="bg-white border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-full hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition">
+              {s.name_fr}
             </Link>
           ))}
         </div>
       </section>
 
-      {/* WILAYAS POPULAIRES */}
-      <section style={{ background: 'white', padding: '60px 1rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h2 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' }}>
-                Wilayas populaires
-              </h2>
-              <p style={{ color: '#64748b', marginTop: '6px', fontSize: '0.95rem' }}>
-                Trouvez un médecin dans votre wilaya
-              </p>
-            </div>
-          </div>
+      {/* ═══════════════════ WILAYAS ═══════════════════ */}
+      <section className="bg-white py-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Wilayas populaires</h2>
+          <p className="text-gray-500 mb-6">Les wilayas avec le plus de médecins référencés</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', marginTop: '24px' }}>
-            {wilayas?.filter(w => topWilayas.includes(w.slug)).map(w => (
-              <Link key={w.id} href={`/wilayas/${w.slug}`} style={{ textDecoration: 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '2px solid #e2e8f0', transition: 'all 0.2s' }}
-                  
-                  >
-                  <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', shrink: 0 }}>
-                    <svg width="18" height="18" fill="none" stroke="white" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    </svg>
-                  </div>
-                  <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1e293b' }}>{w.name_fr}</span>
-                </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            {popularWilayas.map(w => (
+              <Link key={w.slug} href={`/wilayas/${w.slug}`}
+                className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 text-center hover:from-blue-100 hover:to-indigo-100 hover:border-blue-300 transition group">
+                <p className="font-semibold text-gray-800 group-hover:text-blue-700 transition">{w.name}</p>
+                <p className="text-xs text-blue-500 mt-1">Voir les médecins →</p>
               </Link>
             ))}
           </div>
 
-          <div style={{ marginTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {wilayas?.filter(w => !topWilayas.includes(w.slug)).map(w => (
+          {/* Toutes les wilayas */}
+          <div className="flex flex-wrap gap-2">
+            {wilayas?.filter(w => !popularWilayas.find(p => p.slug === w.slug)).map(w => (
               <Link key={w.id} href={`/wilayas/${w.slug}`}
-                style={{ fontSize: '0.8rem', color: '#475569', padding: '6px 14px', borderRadius: '20px', background: '#f1f5f9', border: '1px solid #e2e8f0', textDecoration: 'none', transition: 'all 0.2s' }}
-                
-                >
+                className="bg-gray-50 border border-gray-200 text-gray-600 text-sm px-3 py-1.5 rounded-full hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition">
                 {w.name_fr}
               </Link>
             ))}
@@ -241,94 +271,124 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 1rem' }}>
-        <h2 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a', textAlign: 'center', marginBottom: '8px', letterSpacing: '-0.5px' }}>
-          Comment ça marche ?
-        </h2>
-        <p style={{ color: '#64748b', textAlign: 'center', marginBottom: '40px', fontSize: '0.95rem' }}>
-          Trouvez et contactez un médecin en 3 étapes simples
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
+      {/* ═══════════════════ COMMENT ÇA MARCHE ═══════════════════ */}
+      <section className="max-w-6xl mx-auto px-4 py-12">
+        <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">Comment ça marche ?</h2>
+        <p className="text-gray-500 text-center mb-10">Trouvez votre médecin en 3 étapes simples</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { step: '01', title: 'Recherchez', desc: 'Entrez votre wilaya et spécialité souhaitée dans le moteur de recherche', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', color: '#2563eb' },
-            { step: '02', title: 'Comparez', desc: 'Consultez les fiches des médecins avec avis, adresse et numéro de téléphone', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2', color: '#0891b2' },
-            { step: '03', title: 'Contactez', desc: 'Appelez directement le cabinet médical pour prendre votre rendez-vous', icon: 'M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z', color: '#059669' },
-          ].map((item, i) => (
-            <div key={i} style={{ background: 'white', borderRadius: '20px', padding: '28px', border: '2px solid #e2e8f0', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '3rem', fontWeight: '900', color: '#f1f5f9', lineHeight: 1 }}>{item.step}</div>
-              <div style={{ width: '52px', height: '52px', background: item.color + '15', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                <svg width="26" height="26" fill="none" stroke={item.color} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+            {
+              step: '1',
+              title: 'Recherchez',
+              desc: 'Entrez votre wilaya et la spécialité souhaitée dans le moteur de recherche.',
+              color: 'blue',
+              icon: (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
+              )
+            },
+            {
+              step: '2',
+              title: 'Comparez',
+              desc: 'Consultez les fiches détaillées, les notes et les avis des patients.',
+              color: 'indigo',
+              icon: (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 14l2 2 4-4" />
+                </svg>
+              )
+            },
+            {
+              step: '3',
+              title: 'Contactez',
+              desc: 'Appelez directement le cabinet ou écrivez sur WhatsApp pour prendre RDV.',
+              color: 'green',
+              icon: (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              )
+            }
+          ].map((item) => (
+            <div key={item.step} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
+              <div className={`w-14 h-14 bg-${item.color}-100 rounded-2xl flex items-center justify-center text-${item.color}-600 mx-auto mb-4`}>
+                {item.icon}
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginBottom: '8px' }}>{item.title}</h3>
-              <p style={{ fontSize: '0.875rem', color: '#64748b', lineHeight: '1.6', margin: 0 }}>{item.desc}</p>
+              <div className={`text-xs font-bold text-${item.color}-500 mb-2`}>ÉTAPE {item.step}</div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">{item.title}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* SEO CONTENT */}
-      <section style={{ background: 'white', padding: '60px 1rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px', alignItems: 'start' }}>
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginBottom: '16px', letterSpacing: '-0.5px' }}>
-                Annuaire médical en Algérie
-              </h2>
-              <p style={{ color: '#475569', lineHeight: '1.8', fontSize: '0.95rem', marginBottom: '16px' }}>
-                Dalil Atibaa est le premier annuaire médical en ligne dédié à l'Algérie. Trouvez rapidement un médecin dans votre wilaya, consultez ses coordonnées, son adresse et prenez rendez-vous directement par téléphone.
-              </p>
-              <p style={{ color: '#475569', lineHeight: '1.8', fontSize: '0.95rem' }}>
-                Notre base de données recense plus de {totalDoctors?.toLocaleString()} médecins dans les 58 wilayas d'Algérie. Chaque fiche présente les informations essentielles pour faciliter votre recherche.
-              </p>
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#0f172a', marginBottom: '20px' }}>Questions fréquentes</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {[
-                  { q: 'Comment trouver un médecin près de chez moi ?', a: 'Utilisez notre moteur de recherche, sélectionnez votre wilaya et spécialité pour trouver les médecins disponibles.' },
-                  { q: 'Dalil Atibaa est-il gratuit ?', a: 'Oui, la consultation de l\'annuaire est entièrement gratuite pour les patients.' },
-                  { q: 'Quelles wilayas sont couvertes ?', a: 'Dalil Atibaa couvre les 58 wilayas d\'Algérie incluant Alger, Oran, Constantine et toutes les autres wilayas.' },
-                  { q: 'Comment référencer mon cabinet ?', a: 'Contactez-nous pour référencer votre cabinet et être visible par des milliers de patients.' },
-                ].map((faq, i) => (
-                  <div key={i} style={{ background: '#f8fafc', borderRadius: '12px', padding: '16px', border: '1px solid #e2e8f0' }}>
-                    <p style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.875rem', marginBottom: '6px' }}>{faq.q}</p>
-                    <p style={{ color: '#64748b', fontSize: '0.825rem', margin: 0, lineHeight: '1.5' }}>{faq.a}</p>
-                  </div>
-                ))}
-              </div>
+      {/* ═══════════════════ SEO CONTENT ═══════════════════ */}
+      <section className="bg-white py-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Annuaire médical en Algérie
+            </h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Dalil Atibaa est le premier annuaire médical en ligne dédié à l&apos;Algérie.
+              Trouvez rapidement un médecin dans votre wilaya, consultez ses coordonnées,
+              son adresse et prenez rendez-vous directement par téléphone.
+              Notre base de données recense plus de 1000 médecins dans les 58 wilayas d&apos;Algérie.
+            </p>
+
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Questions fréquentes</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {[
+                {
+                  q: 'Comment trouver un médecin près de chez moi ?',
+                  a: 'Utilisez notre moteur de recherche, sélectionnez votre wilaya et votre spécialité souhaitée.'
+                },
+                {
+                  q: 'Est-ce que Dalil Atibaa est gratuit ?',
+                  a: 'Oui, la consultation de l\'annuaire est entièrement gratuite pour les patients.'
+                },
+                {
+                  q: 'Quelles wilayas sont couvertes ?',
+                  a: 'Dalil Atibaa couvre les 58 wilayas d\'Algérie incluant Alger, Oran, Constantine, Annaba et toutes les autres.'
+                },
+                {
+                  q: 'Comment ajouter mon cabinet médical ?',
+                  a: 'Contactez-nous pour référencer votre cabinet sur Dalil Atibaa et être visible par des milliers de patients.'
+                }
+              ].map((item, i) => (
+                <div key={i} className="bg-white rounded-xl p-4 shadow-sm">
+                  <p className="font-semibold text-gray-700 mb-2 text-sm">{item.q}</p>
+                  <p className="text-gray-500 text-sm leading-relaxed">{item.a}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer style={{ background: '#0f172a', color: '#94a3b8', padding: '40px 1rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #1e293b' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '32px', height: '32px', background: '#2563eb', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="18" height="18" fill="none" stroke="white" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      {/* ═══════════════════ FOOTER ═══════════════════ */}
+      <footer className="bg-gray-900 text-gray-400 py-10">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <span style={{ color: 'white', fontWeight: '700', fontSize: '1rem' }}>Dalil Atibaa</span>
+              <span className="text-white font-bold text-lg">Dalil Atibaa</span>
             </div>
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              {specialties?.slice(0, 6).map(s => (
-                <Link key={s.id} href={`/specialites/${s.slug}`} style={{ color: '#64748b', fontSize: '0.8rem', textDecoration: 'none' }}>{s.name_fr}</Link>
-              ))}
+            <div className="flex gap-6 text-sm flex-wrap justify-center">
+              <Link href="/" className="hover:text-white transition">Accueil</Link>
+              <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
+              <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
+              <Link href="/contact" className="hover:text-white transition">Contact</Link>
             </div>
           </div>
-          <div style={{ textAlign: 'center', fontSize: '0.8rem' }}>
-            <div style={{display:'flex', gap:'16px', justifyContent:'center', marginBottom:'12px', flexWrap:'wrap'}}>
-  <Link href="/a-propos" style={{color:'#94a3b8', textDecoration:'none'}}>A propos</Link>
-  <Link href="/contact" style={{color:'#94a3b8', textDecoration:'none'}}>Contact</Link>
-  <Link href="/recherche" style={{color:'#94a3b8', textDecoration:'none'}}>Recherche</Link>
-</div>
-© 2025 Dalil Atibaa — Annuaire des médecins en Algérie
+          <div className="border-t border-gray-800 pt-6 text-center text-sm">
+            <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
           </div>
         </div>
       </footer>
