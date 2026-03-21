@@ -4,11 +4,14 @@ import { notFound } from 'next/navigation'
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  const { data: wilaya } = await supabase.from('wilayas').select('name_fr').eq('slug', slug).single()
+  const { data: wilaya } = await supabase
+    .from('wilayas').select('name_fr').eq('slug', slug).single()
+
   if (!wilaya) return { title: 'Wilaya introuvable' }
+
   return {
-    title: `Medecins a ${wilaya.name_fr} | Dalil Atibaa`,
-    description: `Trouvez un medecin a ${wilaya.name_fr}. Liste complete avec adresses, telephones et specialites.`,
+    title: `Médecins à ${wilaya.name_fr} | Dalil Atibaa`,
+    description: `Trouvez un médecin à ${wilaya.name_fr}. Liste complète avec adresses, téléphones et spécialités disponibles.`,
     alternates: { canonical: `https://dalil-atibaa.vercel.app/wilayas/${slug}` },
   }
 }
@@ -16,142 +19,210 @@ export async function generateMetadata({ params }) {
 export default async function WilayaPage({ params, searchParams }) {
   const { slug } = await params
   const sp = await searchParams
-  const currentPage = parseInt(sp?.page ?? '0')
+  const page = parseInt(sp?.page || '0')
   const pageSize = 24
-  const from = currentPage * pageSize
-  const to = from + pageSize - 1
 
-  const { data: wilaya } = await supabase.from('wilayas').select('*').eq('slug', slug).single()
+  const { data: wilaya } = await supabase
+    .from('wilayas').select('*').eq('slug', slug).single()
+
   if (!wilaya) notFound()
+
+  // ✅ Spécialités qui ont AU MOINS 1 médecin dans CETTE wilaya
+  const { data: activeSpecIds } = await supabase
+    .from('doctors')
+    .select('specialty_id')
+    .eq('wilaya_id', wilaya.id)
+    .eq('is_active', true)
+
+  const specIds = [...new Set(activeSpecIds?.map(d => d.specialty_id) || [])]
+
+  const { data: specialties } = await supabase
+    .from('specialties')
+    .select('name_fr, slug')
+    .in('id', specIds)
+    .order('name_fr')
+
+  // Médecins paginés
+  const from = page * pageSize
+  const to = from + pageSize - 1
 
   const { data: doctors, count: totalDoctors } = await supabase
     .from('doctors')
-    .select(`id, name_fr, slug, address, phone, rating, specialties(name_fr, slug)`, { count: 'exact' })
+    .select(`
+      id, name_fr, slug, address, phone, rating,
+      specialties(name_fr, slug)
+    `, { count: 'exact' })
     .eq('wilaya_id', wilaya.id)
     .eq('is_active', true)
     .order('rating', { ascending: false })
     .range(from, to)
 
-  const { data: specialties } = await supabase.from('specialties').select('name_fr, slug').order('name_fr')
+  const totalPages = Math.ceil((totalDoctors || 0) / pageSize)
 
-  const total = totalDoctors || 0
-  const totalPages = Math.ceil(total / pageSize)
-  const buildUrl = (p) => `/wilayas/${slug}?page=${p}`
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Médecins à ${wilaya.name_fr}`,
+    numberOfItems: totalDoctors,
+  }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+    <main className="min-h-screen bg-gray-50">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <header style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '64px' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-            <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" fill="none" stroke="white" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      {/* HEADER */}
+      <header className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
               </svg>
             </div>
-            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e40af' }}>Dalil Atibaa</span>
+            <span className="text-xl font-bold text-gray-900">Dalil Atibaa</span>
           </Link>
-          <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', color: '#64748b' }}>
-            <Link href="/" style={{ color: '#64748b', textDecoration: 'none' }}>Accueil</Link>
-            <span>›</span>
-            <span style={{ color: '#1e293b', fontWeight: '600' }}>{wilaya.name_fr}</span>
-          </div>
+          <Link href="/" className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Accueil
+          </Link>
         </div>
       </header>
 
-      <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', padding: '40px 1rem 32px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <h1 style={{ fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: '900', color: 'white', margin: '0 0 8px', letterSpacing: '-0.5px' }}>
-            Médecins à {wilaya.name_fr}
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.75)', margin: '0 0 24px', fontSize: '0.95rem' }}>
-            {total} médecin(s) référencé(s) {totalPages > 1 && `— Page ${currentPage + 1}/${totalPages}`}
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            <Link href={`/wilayas/${slug}`} style={{ background: 'white', color: '#2563eb', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700', textDecoration: 'none' }}>
-              Tous
-            </Link>
-            {specialties?.map(s => (
-              <Link key={s.slug} href={`/wilayas/${slug}/${s.slug}`}
-                style={{ background: 'rgba(255,255,255,0.15)', color: 'white', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '500', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)' }}>
-                {s.name_fr}
-              </Link>
-            ))}
+      {/* HERO */}
+      <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white py-10 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-blue-200 text-sm mb-2 flex gap-2 flex-wrap">
+            <Link href="/" className="hover:text-white">Accueil</Link>
+            <span>›</span>
+            <span>Wilayas</span>
+            <span>›</span>
+            <span className="text-white">{wilaya.name_fr}</span>
           </div>
+          <h1 className="text-3xl font-bold">Médecins à {wilaya.name_fr}</h1>
+          <p className="text-blue-100 mt-2">{totalDoctors} médecin(s) référencé(s)</p>
         </div>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 1rem' }}>
-        {!doctors || doctors.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px', background: 'white', borderRadius: '20px', border: '2px dashed #e2e8f0' }}>
-            <p style={{ color: '#64748b', fontSize: '1.1rem' }}>Aucun médecin trouvé</p>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-              {doctors.map(doctor => (
-                <Link key={doctor.id} href={`/docteur/${doctor.slug}`} style={{ textDecoration: 'none' }}>
-                  <div style={{ background: 'white', borderRadius: '16px', padding: '20px', border: '2px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '14px' }}>
-                      <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '1.25rem', flexShrink: 0 }}>
-                        {doctor.name_fr?.charAt(0)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <h2 style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doctor.name_fr}</h2>
-                        <p style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: '600', margin: '0 0 6px' }}>{doctor.specialties?.name_fr}</p>
-                        <div style={{ display: 'flex', gap: '2px' }}>
-                          {[1,2,3,4,5].map(i => (
-                            <svg key={i} width="13" height="13" fill={i <= Math.round(doctor.rating || 0) ? '#f59e0b' : '#e2e8f0'} viewBox="0 0 20 20">
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                          <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '4px' }}>{doctor.rating}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {doctor.phone && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#059669', fontSize: '0.8rem', fontWeight: '600', marginBottom: '12px' }}>
-                        <svg width="14" height="14" fill="none" stroke="#059669" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        {doctor.phone}
-                      </div>
-                    )}
-                    <div style={{ background: '#eff6ff', color: '#2563eb', padding: '8px', borderRadius: '10px', textAlign: 'center', fontSize: '0.8rem', fontWeight: '600' }}>
-                      Voir le profil →
-                    </div>
-                  </div>
+      <div className="max-w-6xl mx-auto px-4 py-6">
+
+        {/* ✅ FILTRES — seulement les spécialités avec des médecins dans cette wilaya */}
+        {specialties && specialties.length > 0 && (
+          <div className="mb-6">
+            <p className="text-sm text-gray-500 mb-3 font-medium">
+              {specialties.length} spécialité(s) disponible(s) à {wilaya.name_fr} :
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/wilayas/${slug}`}
+                className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium">
+                Tous ({totalDoctors})
+              </Link>
+              {specialties.map(s => (
+                <Link key={s.slug}
+                  href={`/wilayas/${slug}/${s.slug}`}
+                  className="bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-full text-sm hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition">
+                  {s.name_fr}
                 </Link>
               ))}
             </div>
-
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '32px', flexWrap: 'wrap' }}>
-                {currentPage > 0 && <a href={buildUrl(currentPage - 1)} style={{ padding: '10px 16px', background: 'white', border: '2px solid #e2e8f0', borderRadius: '10px', color: '#475569', fontWeight: '600', fontSize: '0.875rem', textDecoration: 'none' }}>← Précédent</a>}
-                {Array.from({ length: totalPages }, (_, i) => {
-                  if (i === 0 || i === totalPages - 1 || (i >= currentPage - 2 && i <= currentPage + 2)) {
-                    return <a key={i} href={buildUrl(i)} style={{ padding: '10px 16px', background: i === currentPage ? '#2563eb' : 'white', border: `2px solid ${i === currentPage ? '#2563eb' : '#e2e8f0'}`, borderRadius: '10px', color: i === currentPage ? 'white' : '#475569', fontWeight: '700', fontSize: '0.875rem', textDecoration: 'none' }}>{i + 1}</a>
-                  }
-                  if (i === currentPage - 3 || i === currentPage + 3) return <span key={i} style={{ padding: '10px 4px', color: '#94a3b8' }}>...</span>
-                  return null
-                })}
-                {currentPage < totalPages - 1 && <a href={buildUrl(currentPage + 1)} style={{ padding: '10px 16px', background: 'white', border: '2px solid #e2e8f0', borderRadius: '10px', color: '#475569', fontWeight: '600', fontSize: '0.875rem', textDecoration: 'none' }}>Suivant →</a>}
-              </div>
-            )}
-            {total > 0 && <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', marginTop: '12px' }}>{from + 1}-{Math.min(to + 1, total)} sur {total} médecins</p>}
-          </>
+          </div>
         )}
 
-        <div style={{ background: 'white', borderRadius: '20px', padding: '32px', marginTop: '40px', border: '2px solid #e2e8f0' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0f172a', marginBottom: '12px' }}>Trouver un médecin à {wilaya.name_fr}</h2>
-          <p style={{ color: '#64748b', lineHeight: '1.7', fontSize: '0.9rem' }}>
-            Dalil Atibaa vous aide à trouver rapidement un médecin à {wilaya.name_fr}. Notre annuaire recense les médecins généralistes, dentistes, cardiologues et bien d'autres spécialistes.
+        {/* LISTE MÉDECINS */}
+        {!doctors || doctors.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl shadow-sm">
+            <p className="text-gray-400 text-xl">Aucun médecin trouvé</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {doctors.map(doctor => (
+              <Link key={doctor.id} href={`/docteur/${doctor.slug}`}>
+                <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 p-5 h-full flex flex-col">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                      {doctor.name_fr?.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-semibold text-gray-800 truncate text-sm">{doctor.name_fr}</h2>
+                      <p className="text-blue-600 text-xs font-medium">{doctor.specialties?.name_fr}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-yellow-400 text-sm">★</span>
+                        <span className="text-xs text-gray-500">{doctor.rating}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {doctor.address && (
+                    <p className="text-gray-400 text-xs mb-1 truncate">📍 {doctor.address}</p>
+                  )}
+                  {doctor.phone && (
+                    <p className="text-green-600 text-xs font-medium mb-3">📞 {doctor.phone}</p>
+                  )}
+                  <span className="block w-full text-center bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-sm font-medium mt-auto transition">
+                    Voir le profil →
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* PAGINATION */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 mt-8 flex-wrap">
+            {page > 0 && (
+              <a href={`/wilayas/${slug}?page=${page - 1}`}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 text-sm transition">
+                ← Précédent
+              </a>
+            )}
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const p = Math.max(0, Math.min(page - 2, totalPages - 5)) + i
+              return (
+                <a key={p} href={`/wilayas/${slug}?page=${p}`}
+                  className={`px-4 py-2 rounded-xl border text-sm transition ${p === page ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50'}`}>
+                  {p + 1}
+                </a>
+              )
+            })}
+            {page < totalPages - 1 && (
+              <a href={`/wilayas/${slug}?page=${page + 1}`}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 text-sm transition">
+                Suivant →
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* SEO CONTENT */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm mt-10">
+          <h2 className="text-xl font-bold text-gray-800 mb-3">Trouver un médecin à {wilaya.name_fr}</h2>
+          <p className="text-gray-600 text-sm leading-relaxed mb-4">
+            Dalil Atibaa vous aide à trouver rapidement un médecin à {wilaya.name_fr}.
+            Notre annuaire recense {totalDoctors} médecins dans {specialties?.length} spécialités disponibles à {wilaya.name_fr}.
           </p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="bg-gray-50 rounded-xl p-4">
+              <p className="font-medium text-gray-700 mb-1 text-sm">Comment prendre rendez-vous à {wilaya.name_fr} ?</p>
+              <p className="text-gray-500 text-xs">Trouvez le médecin sur notre annuaire et appelez directement au numéro indiqué.</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <p className="font-medium text-gray-700 mb-1 text-sm">Quelles spécialités à {wilaya.name_fr} ?</p>
+              <p className="text-gray-500 text-xs">{specialties?.map(s => s.name_fr).join(', ')}.</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <footer style={{ background: '#0f172a', color: '#94a3b8', padding: '32px 1rem', textAlign: 'center', fontSize: '0.8rem', marginTop: '40px' }}>
-        <Link href="/" style={{ color: 'white', fontWeight: '700', textDecoration: 'none' }}>Dalil Atibaa</Link>{' — '}© 2025 Annuaire des médecins en Algérie
+      {/* FOOTER */}
+      <footer className="bg-gray-900 text-gray-400 py-8 text-center text-sm mt-8">
+        <div className="flex gap-6 justify-center mb-3 flex-wrap">
+          <Link href="/" className="hover:text-white transition">Accueil</Link>
+          <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
+          <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
+          <Link href="/contact" className="hover:text-white transition">Contact</Link>
+        </div>
+        <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
       </footer>
     </main>
   )
