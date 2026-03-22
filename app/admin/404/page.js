@@ -50,7 +50,7 @@ export default function AdminDashboard() {
       sessionStorage.setItem('admin_auth', 'true')
       setIsAuthenticated(true)
       loadAllData()
-    } else { setError('Nom d'utilisateur ou mot de passe incorrect') }
+    } else { setError('Nom utilisateur ou mot de passe incorrect') }
   }
 
   function handleLogout() {
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Nom d'utilisateur</label>
+              <label className="text-sm font-medium text-gray-700 block mb-1">Nom utilisateur</label>
               <input type="text" value={username} onChange={e => { setUsername(e.target.value); setError('') }}
                 placeholder="Username"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
