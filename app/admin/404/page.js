@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
+const ADMIN_USERNAME = 'LEADMAGNUS'
 const ADMIN_PASSWORD = 'GALAXTICOS2025'
 
 const supabase = createClient(
@@ -20,6 +21,7 @@ function generateSlug(name, wilayaName, id) {
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('stats')
@@ -44,11 +46,11 @@ export default function AdminDashboard() {
 
   function handleLogin(e) {
     e.preventDefault()
-    if (password === ADMIN_PASSWORD) {
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       sessionStorage.setItem('admin_auth', 'true')
       setIsAuthenticated(true)
       loadAllData()
-    } else { setError('Mot de passe incorrect') }
+    } else { setError('Nom d'utilisateur ou mot de passe incorrect') }
   }
 
   function handleLogout() {
@@ -177,9 +179,15 @@ export default function AdminDashboard() {
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1">Nom d'utilisateur</label>
+              <input type="text" value={username} onChange={e => { setUsername(e.target.value); setError('') }}
+                placeholder="Username"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+            </div>
+            <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Mot de passe</label>
               <input type="password" value={password} onChange={e => { setPassword(e.target.value); setError('') }}
-                placeholder="••••••••" autoFocus
+                placeholder="••••••••"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
               {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
             </div>
