@@ -10,6 +10,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
+function generateSlug(name, wilayaName, id) {
+  let text = (name + ' ' + (wilayaName || '')).toLowerCase()
+  const map = { é:'e',è:'e',ê:'e',à:'a',â:'a',î:'i',ô:'o',ù:'u',û:'u',ç:'c',ë:'e',ï:'i' }
+  text = text.replace(/[éèêàâîôùûçëï]/g, c => map[c] || c)
+  text = text.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+  return text + '-' + id
+}
+
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
@@ -19,20 +27,19 @@ export default function AdminDashboard() {
 
   const [stats, setStats] = useState(null)
   const [recentDoctors, setRecentDoctors] = useState([])
-  const [problemDoctors, setProblemDoctors] = useState({
-    noPhone: [],
-    noAddress: [],
-    noGPS: [],
-    duplicateSlugs: [],
-  })
+  const [problemDoctors, setProblemDoctors] = useState({ noPhone:[], noAddress:[], noGPS:[], duplicateSlugs:[] })
   const [logs404, setLogs404] = useState([])
+  const [specialties, setSpecialties] = useState([])
+  const [wilayas, setWilayas] = useState([])
+
+  const [form, setForm] = useState({ name_fr:'', specialty_id:'', wilaya_id:'', phone:'', address:'', google_map_url:'', rating:'' })
+  const [formLoading, setFormLoading] = useState(false)
+  const [formSuccess, setFormSuccess] = useState('')
+  const [formError, setFormError] = useState('')
 
   useEffect(() => {
     const auth = sessionStorage.getItem('admin_auth')
-    if (auth === 'true') {
-      setIsAuthenticated(true)
-      loadAllData()
-    }
+    if (auth === 'true') { setIsAuthenticated(true); loadAllData() }
   }, [])
 
   function handleLogin(e) {
@@ -41,9 +48,7 @@ export default function AdminDashboard() {
       sessionStorage.setItem('admin_auth', 'true')
       setIsAuthenticated(true)
       loadAllData()
-    } else {
-      setError('Mot de passe incorrect')
-    }
+    } else { setError('Mot de passe incorrect') }
   }
 
   function handleLogout() {
@@ -54,95 +59,107 @@ export default function AdminDashboard() {
 
   async function loadAllData() {
     setLoading(true)
-    await Promise.all([
-      fetchStats(),
-      fetchRecentDoctors(),
-      fetchProblemDoctors(),
-      fetchLogs(),
-    ])
+    await Promise.all([fetchStats(), fetchRecentDoctors(), fetchProblemDoctors(), fetchLogs(), fetchSpecialtiesWilayas()])
     setLoading(false)
   }
 
+  async function fetchSpecialtiesWilayas() {
+    const [{ data: sp }, { data: wi }] = await Promise.all([
+      supabase.from('specialties').select('id, name_fr').order('name_fr'),
+      supabase.from('wilayas').select('id, name_fr').order('name_fr'),
+    ])
+    setSpecialties(sp || [])
+    setWilayas(wi || [])
+  }
+
   async function fetchStats() {
-    const [
-      { count: total },
-      { count: actifs },
-      { count: inactifs },
-      { data: wilayas },
-      { data: specialties },
-    ] = await Promise.all([
-      supabase.from('doctors').select('*', { count: 'exact', head: true }),
-      supabase.from('doctors').select('*', { count: 'exact', head: true }).eq('is_active', true),
-      supabase.from('doctors').select('*', { count: 'exact', head: true }).eq('is_active', false),
+    const [{ count: total }, { count: actifs }, { count: inactifs }, { data: wi }, { data: sp }] = await Promise.all([
+      supabase.from('doctors').select('*', { count:'exact', head:true }),
+      supabase.from('doctors').select('*', { count:'exact', head:true }).eq('is_active', true),
+      supabase.from('doctors').select('*', { count:'exact', head:true }).eq('is_active', false),
       supabase.from('doctors').select('wilaya_id').eq('is_active', true),
       supabase.from('doctors').select('specialty_id').eq('is_active', true),
     ])
-
-    const uniqueWilayas = new Set(wilayas?.map(d => d.wilaya_id)).size
-    const uniqueSpecialties = new Set(specialties?.map(d => d.specialty_id)).size
-
+    const uniqueWilayas = new Set(wi?.map(d => d.wilaya_id)).size
+    const uniqueSpecialties = new Set(sp?.map(d => d.specialty_id)).size
     setStats({ total, actifs, inactifs, wilayas: uniqueWilayas, specialties: uniqueSpecialties })
   }
 
   async function fetchRecentDoctors() {
-    const { data } = await supabase
-      .from('doctors')
-      .select('id, name_fr, slug, created_at')
-      .order('created_at', { ascending: false })
-      .limit(10)
+    const { data } = await supabase.from('doctors').select('id, name_fr, slug, created_at').order('created_at', { ascending: false }).limit(10)
     setRecentDoctors(data || [])
   }
 
   async function fetchProblemDoctors() {
-    const [
-      { data: noPhone },
-      { data: noAddress },
-      { data: noGPS },
-    ] = await Promise.all([
+    const [{ data: noPhone }, { data: noAddress }, { data: noGPS }] = await Promise.all([
       supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true).or('phone.is.null,phone.eq.,phone.eq.N/A').limit(50),
       supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true).or('address.is.null,address.eq.,address.eq.N/A').limit(50),
       supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true).is('latitude', null).limit(50),
     ])
-
-    // Slugs en double
-    const { data: allSlugs } = await supabase
-      .from('doctors')
-      .select('slug')
-      .eq('is_active', true)
-
+    const { data: allSlugs } = await supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true)
     const slugCount = {}
-    allSlugs?.forEach(d => {
-      slugCount[d.slug] = (slugCount[d.slug] || 0) + 1
-    })
-    const duplicates = Object.entries(slugCount)
-      .filter(([, count]) => count > 1)
-      .map(([slug]) => slug)
-
-    let duplicateDoctors = []
-    if (duplicates.length > 0) {
-      const { data } = await supabase
-        .from('doctors')
-        .select('id, name_fr, slug')
-        .in('slug', duplicates.slice(0, 20))
-        .eq('is_active', true)
-      duplicateDoctors = data || []
-    }
-
-    setProblemDoctors({
-      noPhone: noPhone || [],
-      noAddress: noAddress || [],
-      noGPS: noGPS || [],
-      duplicateSlugs: duplicateDoctors,
-    })
+    allSlugs?.forEach(d => { slugCount[d.slug] = (slugCount[d.slug] || 0) + 1 })
+    const duplicateDoctors = allSlugs?.filter(d => slugCount[d.slug] > 1) || []
+    setProblemDoctors({ noPhone: noPhone||[], noAddress: noAddress||[], noGPS: noGPS||[], duplicateSlugs: duplicateDoctors.slice(0,50) })
   }
 
   async function fetchLogs() {
-    const { data } = await supabase
-      .from('error_404_log')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100)
+    const { data } = await supabase.from('error_404_log').select('*').order('created_at', { ascending: false }).limit(100)
     setLogs404(data || [])
+  }
+
+  async function handleAddDoctor(e) {
+    e.preventDefault()
+    setFormLoading(true)
+    setFormSuccess('')
+    setFormError('')
+
+    if (!form.name_fr || !form.specialty_id || !form.wilaya_id) {
+      setFormError('Nom, spécialité et wilaya sont obligatoires')
+      setFormLoading(false)
+      return
+    }
+
+    try {
+      const wilayaName = wilayas.find(w => w.id == form.wilaya_id)?.name_fr || ''
+
+      const insertData = {
+        name_fr: form.name_fr.trim(),
+        specialty_id: parseInt(form.specialty_id),
+        wilaya_id: parseInt(form.wilaya_id),
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+        google_map_url: form.google_map_url.trim() || null,
+        rating: form.rating ? parseFloat(form.rating) : null,
+        is_active: true,
+        is_verified: false,
+        slug: 'temp-slug',
+      }
+
+      const { data, error: insertError } = await supabase
+        .from('doctors')
+        .insert(insertData)
+        .select('id')
+        .single()
+
+      if (insertError) throw insertError
+
+      const slug = generateSlug(form.name_fr, wilayaName, data.id)
+
+      await supabase.from('doctors').update({
+        slug,
+        search_vector: null,
+      }).eq('id', data.id)
+
+      setFormSuccess(`✅ Dr. ${form.name_fr} ajouté avec succès ! Slug : ${slug}`)
+      setForm({ name_fr:'', specialty_id:'', wilaya_id:'', phone:'', address:'', google_map_url:'', rating:'' })
+      fetchStats()
+      fetchRecentDoctors()
+    } catch (err) {
+      setFormError('Erreur : ' + err.message)
+    }
+
+    setFormLoading(false)
   }
 
   if (!isAuthenticated) {
@@ -161,14 +178,9 @@ export default function AdminDashboard() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Mot de passe</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => { setPassword(e.target.value); setError('') }}
-                placeholder="••••••••"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                autoFocus
-              />
+              <input type="password" value={password} onChange={e => { setPassword(e.target.value); setError('') }}
+                placeholder="••••••••" autoFocus
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
               {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
             </div>
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition">
@@ -181,15 +193,15 @@ export default function AdminDashboard() {
   }
 
   const tabs = [
-    { id: 'stats', label: 'Statistiques' },
-    { id: 'recent', label: 'Derniers ajouts' },
-    { id: 'problems', label: `Problèmes` },
-    { id: 'logs', label: 'Erreurs 404' },
+    { id:'stats', label:'Statistiques' },
+    { id:'add', label:'➕ Ajouter médecin' },
+    { id:'recent', label:'Derniers ajouts' },
+    { id:'problems', label:'Problèmes' },
+    { id:'logs', label:'Erreurs 404' },
   ]
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* HEADER */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -201,31 +213,26 @@ export default function AdminDashboard() {
             <span className="font-bold text-gray-800">Admin — Dalil Atibaa</span>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={loadAllData} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-              Actualiser
-            </button>
-            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-red-500 transition">
-              Déconnexion
-            </button>
+            <button onClick={loadAllData} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Actualiser</button>
+            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-red-500 transition">Déconnexion</button>
           </div>
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
-
         {loading ? (
-          <div className="text-center py-20 text-gray-400">Chargement des données...</div>
+          <div className="text-center py-20 text-gray-400">Chargement...</div>
         ) : (
           <>
             {/* STATS CARDS */}
             {stats && (
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                 {[
-                  { label: 'Total médecins', value: stats.total, color: 'text-blue-600' },
-                  { label: 'Actifs', value: stats.actifs, color: 'text-green-600' },
-                  { label: 'Inactifs', value: stats.inactifs, color: 'text-red-500' },
-                  { label: 'Wilayas', value: stats.wilayas, color: 'text-purple-600' },
-                  { label: 'Spécialités', value: stats.specialties, color: 'text-amber-600' },
+                  { label:'Total médecins', value:stats.total, color:'text-blue-600' },
+                  { label:'Actifs', value:stats.actifs, color:'text-green-600' },
+                  { label:'Inactifs', value:stats.inactifs, color:'text-red-500' },
+                  { label:'Wilayas', value:stats.wilayas, color:'text-purple-600' },
+                  { label:'Spécialités', value:stats.specialties, color:'text-amber-600' },
                 ].map((s, i) => (
                   <div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
                     <p className={`text-2xl font-bold ${s.color}`}>{s.value?.toLocaleString()}</p>
@@ -238,21 +245,167 @@ export default function AdminDashboard() {
             {/* TABS */}
             <div className="flex gap-2 mb-6 flex-wrap">
               {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                    activeTab === tab.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                  }`}
-                >
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
                   {tab.label}
                 </button>
               ))}
             </div>
 
-            {/* TAB: STATS / RECENT */}
+            {/* TAB: ADD DOCTOR */}
+            {activeTab === 'add' && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-2xl">
+                <h2 className="font-bold text-gray-800 mb-6 text-lg">Ajouter un médecin</h2>
+
+                {formSuccess && (
+                  <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+                    {formSuccess}
+                  </div>
+                )}
+                {formError && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-4">
+                    {formError}
+                  </div>
+                )}
+
+                <form onSubmit={handleAddDoctor} className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Nom du médecin / cabinet *</label>
+                    <input type="text" value={form.name_fr} onChange={e => setForm({...form, name_fr: e.target.value})}
+                      placeholder="Dr. Mohammed Benali"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">Spécialité *</label>
+                      <select value={form.specialty_id} onChange={e => setForm({...form, specialty_id: e.target.value})}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
+                        <option value="">Choisir...</option>
+                        {specialties.map(s => <option key={s.id} value={s.id}>{s.name_fr}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">Wilaya *</label>
+                      <select value={form.wilaya_id} onChange={e => setForm({...form, wilaya_id: e.target.value})}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
+                        <option value="">Choisir...</option>
+                        {wilayas.map(w => <option key={w.id} value={w.id}>{w.name_fr}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Téléphone</label>
+                    <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
+                      placeholder="0555 123 456"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Adresse</label>
+                    <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})}
+                      placeholder="12 Rue Didouche Mourad, Alger"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Lien Google Maps</label>
+                    <input type="text" value={form.google_map_url} onChange={e => setForm({...form, google_map_url: e.target.value})}
+                      placeholder="https://maps.google.com/..."
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Note (0 à 5)</label>
+                    <input type="number" min="0" max="5" step="0.1" value={form.rating} onChange={e => setForm({...form, rating: e.target.value})}
+                      placeholder="4.5"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+                  </div>
+
+                  <div className="pt-2">
+                    <button type="submit" disabled={formLoading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-3 rounded-xl text-sm transition">
+                      {formLoading ? 'Enregistrement...' : 'Enregistrer le médecin'}
+                    </button>
+                  </div>
+
+                  {form.name_fr && form.wilaya_id && (
+                    <p className="text-xs text-gray-400 text-center">
+                      Slug généré : <span className="font-mono text-blue-500">
+                        {generateSlug(form.name_fr, wilayas.find(w => w.id == form.wilaya_id)?.name_fr || '', 'ID')}
+                      </span>
+                    </p>
+                  )}
+                </form>
+              </div>
+            )}
+
+            {/* TAB: STATS */}
+            {activeTab === 'stats' && stats && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <h2 className="font-bold text-gray-800 mb-4">Médecins</h2>
+                  <div className="space-y-3">
+                    {[
+                      { label:'Total', value:stats.total, bg:'bg-blue-50', text:'text-blue-600' },
+                      { label:'Actifs', value:stats.actifs, bg:'bg-green-50', text:'text-green-600' },
+                      { label:'Inactifs', value:stats.inactifs, bg:'bg-red-50', text:'text-red-500' },
+                    ].map((s, i) => (
+                      <div key={i} className={`flex justify-between items-center ${s.bg} rounded-xl px-4 py-3`}>
+                        <span className="text-gray-600 text-sm">{s.label}</span>
+                        <span className={`font-bold ${s.text}`}>{s.value?.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <h2 className="font-bold text-gray-800 mb-4">Couverture</h2>
+                  <div className="space-y-3">
+                    {[
+                      { label:'Wilayas couvertes', value:`${stats.wilayas} / 58`, bg:'bg-purple-50', text:'text-purple-600' },
+                      { label:'Spécialités', value:stats.specialties, bg:'bg-amber-50', text:'text-amber-600' },
+                      { label:'Médecins / wilaya (moy.)', value:stats.wilayas ? Math.round(stats.actifs / stats.wilayas) : 0, bg:'bg-teal-50', text:'text-teal-600' },
+                    ].map((s, i) => (
+                      <div key={i} className={`flex justify-between items-center ${s.bg} rounded-xl px-4 py-3`}>
+                        <span className="text-gray-600 text-sm">{s.label}</span>
+                        <span className={`font-bold ${s.text}`}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <h2 className="font-bold text-gray-800 mb-4">Qualité des données</h2>
+                  <div className="space-y-3">
+                    {[
+                      { label:'Sans téléphone', value:problemDoctors.noPhone.length, bg:'bg-red-50', text:'text-red-500' },
+                      { label:'Sans adresse', value:problemDoctors.noAddress.length, bg:'bg-orange-50', text:'text-orange-500' },
+                      { label:'Sans GPS', value:problemDoctors.noGPS.length, bg:'bg-amber-50', text:'text-amber-500' },
+                      { label:'Slugs en double', value:problemDoctors.duplicateSlugs.length, bg:'bg-purple-50', text:'text-purple-500' },
+                    ].map((s, i) => (
+                      <div key={i} className={`flex justify-between items-center ${s.bg} rounded-xl px-4 py-3`}>
+                        <span className="text-gray-600 text-sm">{s.label}</span>
+                        <span className={`font-bold ${s.text}`}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <h2 className="font-bold text-gray-800 mb-4">Erreurs 404</h2>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3">
+                      <span className="text-gray-600 text-sm">Total enregistrées</span>
+                      <span className="font-bold text-gray-700">{logs404.length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: RECENT */}
             {activeTab === 'recent' && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
@@ -286,14 +439,12 @@ export default function AdminDashboard() {
             {/* TAB: PROBLEMS */}
             {activeTab === 'problems' && (
               <div className="space-y-6">
-
-                {/* Résumé problèmes */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { label: 'Sans téléphone', value: problemDoctors.noPhone.length, color: 'text-red-500' },
-                    { label: 'Sans adresse', value: problemDoctors.noAddress.length, color: 'text-orange-500' },
-                    { label: 'Sans GPS', value: problemDoctors.noGPS.length, color: 'text-amber-500' },
-                    { label: 'Slugs en double', value: problemDoctors.duplicateSlugs.length, color: 'text-purple-500' },
+                    { label:'Sans téléphone', value:problemDoctors.noPhone.length, color:'text-red-500' },
+                    { label:'Sans adresse', value:problemDoctors.noAddress.length, color:'text-orange-500' },
+                    { label:'Sans GPS', value:problemDoctors.noGPS.length, color:'text-amber-500' },
+                    { label:'Slugs en double', value:problemDoctors.duplicateSlugs.length, color:'text-purple-500' },
                   ].map((s, i) => (
                     <div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
                       <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -302,43 +453,38 @@ export default function AdminDashboard() {
                   ))}
                 </div>
 
-                {/* Tables problèmes */}
                 {[
-                  { title: 'Médecins sans téléphone', data: problemDoctors.noPhone, color: 'text-red-500' },
-                  { title: 'Médecins sans adresse', data: problemDoctors.noAddress, color: 'text-orange-500' },
-                  { title: 'Médecins sans coordonnées GPS', data: problemDoctors.noGPS, color: 'text-amber-500' },
-                  { title: 'Slugs en double', data: problemDoctors.duplicateSlugs, color: 'text-purple-500' },
-                ].map((section, si) => (
-                  section.data.length > 0 && (
-                    <div key={si} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                      <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                        <h2 className="font-bold text-gray-800">
-                          {section.title}
-                          <span className={`ml-2 text-sm font-normal ${section.color}`}>
-                            ({section.data.length})
-                          </span>
-                        </h2>
-                      </div>
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="text-left px-6 py-3 text-gray-500 font-medium">ID</th>
-                            <th className="text-left px-6 py-3 text-gray-500 font-medium">Nom</th>
-                            <th className="text-left px-6 py-3 text-gray-500 font-medium">Slug</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {section.data.map((d, i) => (
-                            <tr key={i} className="hover:bg-gray-50">
-                              <td className="px-6 py-3 text-gray-400 text-xs">{d.id}</td>
-                              <td className="px-6 py-3 text-gray-700">{d.name_fr || '—'}</td>
-                              <td className="px-6 py-3 text-gray-400 text-xs font-mono">{d.slug}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  { title:'Médecins sans téléphone', data:problemDoctors.noPhone, color:'text-red-500' },
+                  { title:'Médecins sans adresse', data:problemDoctors.noAddress, color:'text-orange-500' },
+                  { title:'Médecins sans coordonnées GPS', data:problemDoctors.noGPS, color:'text-amber-500' },
+                  { title:'Slugs en double', data:problemDoctors.duplicateSlugs, color:'text-purple-500' },
+                ].map((section, si) => section.data.length > 0 && (
+                  <div key={si} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100">
+                      <h2 className="font-bold text-gray-800">
+                        {section.title}
+                        <span className={`ml-2 text-sm font-normal ${section.color}`}>({section.data.length})</span>
+                      </h2>
                     </div>
-                  )
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left px-6 py-3 text-gray-500 font-medium">ID</th>
+                          <th className="text-left px-6 py-3 text-gray-500 font-medium">Nom</th>
+                          <th className="text-left px-6 py-3 text-gray-500 font-medium">Slug</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {section.data.map((d, i) => (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-6 py-3 text-gray-400 text-xs">{d.id}</td>
+                            <td className="px-6 py-3 text-gray-700">{d.name_fr || '—'}</td>
+                            <td className="px-6 py-3 text-gray-400 text-xs font-mono">{d.slug}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ))}
               </div>
             )}
@@ -347,99 +493,30 @@ export default function AdminDashboard() {
             {activeTab === 'logs' && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="font-bold text-gray-800">
-                    Erreurs 404
-                    <span className="ml-2 text-sm font-normal text-gray-500">({logs404.length} entrées)</span>
-                  </h2>
+                  <h2 className="font-bold text-gray-800">Erreurs 404 <span className="ml-2 text-sm font-normal text-gray-500">({logs404.length})</span></h2>
                 </div>
                 {logs404.length === 0 ? (
                   <div className="text-center py-12 text-gray-400">Aucune erreur 404 enregistrée</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="text-left px-6 py-3 text-gray-500 font-medium">URL</th>
-                          <th className="text-left px-6 py-3 text-gray-500 font-medium">Date</th>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-6 py-3 text-gray-500 font-medium">URL</th>
+                        <th className="text-left px-6 py-3 text-gray-500 font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {logs404.map((log, i) => (
+                        <tr key={i} className="hover:bg-gray-50">
+                          <td className="px-6 py-3 text-gray-700 font-mono text-xs">{log.url || log.path || '—'}</td>
+                          <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleString('fr-DZ')}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {logs404.map((log, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-6 py-3 text-gray-700 font-mono text-xs">{log.url || log.path || '—'}</td>
-                            <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
-                              {new Date(log.created_at).toLocaleString('fr-DZ')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
-              </div>
-            )}
-
-            {/* TAB: STATS */}
-            {activeTab === 'stats' && stats && (
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h2 className="font-bold text-gray-800 mb-4">Médecins</h2>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Total', value: stats.total, bg: 'bg-blue-50', text: 'text-blue-600' },
-                      { label: 'Actifs', value: stats.actifs, bg: 'bg-green-50', text: 'text-green-600' },
-                      { label: 'Inactifs', value: stats.inactifs, bg: 'bg-red-50', text: 'text-red-500' },
-                    ].map((s, i) => (
-                      <div key={i} className={`flex justify-between items-center ${s.bg} rounded-xl px-4 py-3`}>
-                        <span className="text-gray-600 text-sm">{s.label}</span>
-                        <span className={`font-bold ${s.text}`}>{s.value?.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h2 className="font-bold text-gray-800 mb-4">Couverture</h2>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Wilayas couvertes', value: `${stats.wilayas} / 58`, bg: 'bg-purple-50', text: 'text-purple-600' },
-                      { label: 'Spécialités', value: stats.specialties, bg: 'bg-amber-50', text: 'text-amber-600' },
-                      { label: 'Médecins / wilaya (moy.)', value: stats.wilayas ? Math.round(stats.actifs / stats.wilayas) : 0, bg: 'bg-teal-50', text: 'text-teal-600' },
-                    ].map((s, i) => (
-                      <div key={i} className={`flex justify-between items-center ${s.bg} rounded-xl px-4 py-3`}>
-                        <span className="text-gray-600 text-sm">{s.label}</span>
-                        <span className={`font-bold ${s.text}`}>{s.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h2 className="font-bold text-gray-800 mb-4">Qualité des données</h2>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Sans téléphone', value: problemDoctors.noPhone.length, bg: 'bg-red-50', text: 'text-red-500' },
-                      { label: 'Sans adresse', value: problemDoctors.noAddress.length, bg: 'bg-orange-50', text: 'text-orange-500' },
-                      { label: 'Sans GPS', value: problemDoctors.noGPS.length, bg: 'bg-amber-50', text: 'text-amber-500' },
-                      { label: 'Slugs en double', value: problemDoctors.duplicateSlugs.length, bg: 'bg-purple-50', text: 'text-purple-500' },
-                    ].map((s, i) => (
-                      <div key={i} className={`flex justify-between items-center ${s.bg} rounded-xl px-4 py-3`}>
-                        <span className="text-gray-600 text-sm">{s.label}</span>
-                        <span className={`font-bold ${s.text}`}>{s.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h2 className="font-bold text-gray-800 mb-4">Erreurs 404</h2>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3">
-                      <span className="text-gray-600 text-sm">Total enregistrées</span>
-                      <span className="font-bold text-gray-700">{logs404.length}</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </>
