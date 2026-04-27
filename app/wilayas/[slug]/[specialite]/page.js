@@ -16,7 +16,7 @@ export async function generateMetadata({ params }) {
     title: `${specialty.name_fr} a ${wilayaData.name_fr} | Dalil Atibaa`,
     description: `Trouvez les meilleurs ${specialty.name_fr} a ${wilayaData.name_fr}. Adresses, telephones et avis patients.`,
     alternates: {
-      canonical: `https://dalil-atibaa.vercel.app/wilayas/${slug}/${specialite}`,
+      canonical: `https://www.dalil-atibaa.com/wilayas/${slug}/${specialite}`,
     },
   }
 }
@@ -64,7 +64,7 @@ export default async function WilayaSpecialitePage({ params, searchParams }) {
       '@type': 'ListItem',
       position: from + i + 1,
       name: d.name_fr,
-      url: `https://dalil-atibaa.vercel.app/docteur/${d.slug}`,
+      url: `https://www.dalil-atibaa.com/docteur/${d.slug}`,
     }))
   }
 

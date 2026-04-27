@@ -12,7 +12,7 @@ export async function generateMetadata({ params }) {
   return {
     title: `${specialty.name_fr} en Algérie | Dalil Atibaa`,
     description: `Liste des ${specialty.name_fr} en Algérie. Adresses, téléphones et avis patients. Prenez rendez-vous facilement.`,
-    alternates: { canonical: `https://dalil-atibaa.vercel.app/specialites/${slug}` },
+    alternates: { canonical: `https://www.dalil-atibaa.com/specialites/${slug}` },
   }
 }
 
@@ -224,7 +224,7 @@ export default async function SpecialitePage({ params, searchParams }) {
           <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
           <Link href="/contact" className="hover:text-white transition">Contact</Link>
         </div>
-        <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
+        <p>© 2026 Dalil Atibaa — Annuaire des médecins en Algérie</p>
       </footer>
     </main>
   )

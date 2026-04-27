@@ -6,12 +6,12 @@ export const metadata = {
   description: 'Trouvez un médecin en Algérie parmi des professionnels de santé référencés. Dentistes, cardiologues, gynécologues dans les 58 wilayas. Adresses et téléphones disponibles.',
   keywords: 'médecin algérie, annuaire médical algérie, trouver médecin, dentiste algérie, cardiologue algérie, wilaya',
   alternates: {
-    canonical: 'https://dalil-atibaa.vercel.app',
+    canonical: 'https://www.dalil-atibaa.com',
   },
   openGraph: {
     title: 'Dalil Atibaa — Annuaire des Médecins en Algérie',
     description: 'Trouvez un médecin en Algérie parmi 1500+ professionnels. Dentistes, cardiologues, gynécologues dans les 58 wilayas.',
-    url: 'https://dalil-atibaa.vercel.app',
+    url: 'https://www.dalil-atibaa.com',
     siteName: 'Dalil Atibaa',
     locale: 'fr_DZ',
     type: 'website',
@@ -143,20 +143,20 @@ export default async function HomePage() {
     '@graph': [
       {
         '@type': 'WebSite',
-        url: 'https://dalil-atibaa.vercel.app',
+        url: 'https://www.dalil-atibaa.com',
         name: 'Dalil Atibaa',
         description: 'Annuaire des médecins en Algérie',
         inLanguage: 'fr-DZ',
         potentialAction: {
           '@type': 'SearchAction',
-          target: { '@type': 'EntryPoint', urlTemplate: 'https://dalil-atibaa.vercel.app/recherche?q={search_term_string}' },
+          target: { '@type': 'EntryPoint', urlTemplate: 'https://www.dalil-atibaa.com/recherche?q={search_term_string}' },
           'query-input': 'required name=search_term_string',
         },
       },
       {
         '@type': 'Organization',
         name: 'Dalil Atibaa',
-        url: 'https://dalil-atibaa.vercel.app',
+        url: 'https://www.dalil-atibaa.com',
         description: `Annuaire médical de référence en Algérie. ${totalDoctors} médecins référencés.`,
         areaServed: { '@type': 'Country', name: 'Algeria' },
       },

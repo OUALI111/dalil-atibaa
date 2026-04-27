@@ -12,7 +12,7 @@ export async function generateMetadata({ params }) {
   return {
     title: `Médecins à ${wilaya.name_fr} | Dalil Atibaa`,
     description: `Trouvez un médecin à ${wilaya.name_fr}. Liste complète avec adresses, téléphones et spécialités disponibles.`,
-    alternates: { canonical: `https://dalil-atibaa.vercel.app/wilayas/${slug}` },
+    alternates: { canonical: `https://www.dalil-atibaa.com/wilayas/${slug}` },
   }
 }
 
@@ -222,7 +222,7 @@ export default async function WilayaPage({ params, searchParams }) {
           <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
           <Link href="/contact" className="hover:text-white transition">Contact</Link>
         </div>
-        <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
+        <p>© 2026 Dalil Atibaa — Annuaire des médecins en Algérie</p>
       </footer>
     </main>
   )

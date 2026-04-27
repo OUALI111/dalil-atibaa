@@ -24,7 +24,7 @@ export async function generateMetadata({ params }) {
     title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
     description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez rendez-vous en ligne.`,
     keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
-    alternates: { canonical: `https://dalil-atibaa.vercel.app/docteur/${slug}` },
+    alternates: { canonical: `https://www.dalil-atibaa.com/docteur/${slug}` },
     openGraph: {
       title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}`,
       description: `Services: ${servicesText}`,
@@ -72,7 +72,7 @@ export default async function DoctorPage({ params }) {
     '@graph': [
       {
         '@type': ['Physician', 'MedicalBusiness'],
-        '@id': `https://dalil-atibaa.vercel.app/docteur/${doctor.slug}`,
+        '@id': `https://www.dalil-atibaa.com/docteur/${doctor.slug}`,
         name: doctor.name_fr,
         medicalSpecialty: doctor.specialties?.name_fr,
         telephone: doctor.phone,
@@ -93,10 +93,10 @@ export default async function DoctorPage({ params }) {
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Accueil', item: 'https://dalil-atibaa.vercel.app' },
-          { '@type': 'ListItem', position: 2, name: doctor.specialties?.name_fr, item: `https://dalil-atibaa.vercel.app/specialites/${doctor.specialties?.slug}` },
-          { '@type': 'ListItem', position: 3, name: doctor.wilayas?.name_fr, item: `https://dalil-atibaa.vercel.app/wilayas/${doctor.wilayas?.slug}` },
-          { '@type': 'ListItem', position: 4, name: doctor.name_fr, item: `https://dalil-atibaa.vercel.app/docteur/${doctor.slug}` },
+          { '@type': 'ListItem', position: 1, name: 'Accueil', item: 'https://www.dalil-atibaa.com' },
+          { '@type': 'ListItem', position: 2, name: doctor.specialties?.name_fr, item: `https://www.dalil-atibaa.com/specialites/${doctor.specialties?.slug}` },
+          { '@type': 'ListItem', position: 3, name: doctor.wilayas?.name_fr, item: `https://www.dalil-atibaa.com/wilayas/${doctor.wilayas?.slug}` },
+          { '@type': 'ListItem', position: 4, name: doctor.name_fr, item: `https://www.dalil-atibaa.com/docteur/${doctor.slug}` },
         ]
       },
       {

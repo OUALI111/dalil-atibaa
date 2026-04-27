@@ -3,7 +3,7 @@ import Link from 'next/link'
 export const metadata = {
   title: 'A propos | Dalil Atibaa',
   description: 'Dalil Atibaa est le premier annuaire médical en ligne dédié à l\'Algérie. Découvrez notre mission et notre équipe.',
-  alternates: { canonical: 'https://dalil-atibaa.vercel.app/a-propos' },
+  alternates: { canonical: 'https://www.dalil-atibaa.com/a-propos' },
 }
 
 export default function AboutPage() {

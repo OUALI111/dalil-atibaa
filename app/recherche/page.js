@@ -9,8 +9,8 @@ export async function generateMetadata({ searchParams }) {
   const wilaya = params?.wilaya || ''
 
   const canonicalUrl = specialite || wilaya
-    ? `https://dalil-atibaa.vercel.app/recherche?${specialite ? `specialite=${specialite}` : ''}${specialite && wilaya ? '&' : ''}${wilaya ? `wilaya=${wilaya}` : ''}`
-    : 'https://dalil-atibaa.vercel.app/recherche'
+    ? `https://www.dalil-atibaa.com/recherche?${specialite ? `specialite=${specialite}` : ''}${specialite && wilaya ? '&' : ''}${wilaya ? `wilaya=${wilaya}` : ''}`
+    : 'https://www.dalil-atibaa.com/recherche'
 
   const title = specialite && wilaya
     ? `${specialite} à ${wilaya} | Dalil Atibaa`
