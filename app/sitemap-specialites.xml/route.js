@@ -1,7 +1,9 @@
 import { supabase } from '../../lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
-  const baseUrl = 'https://dalil-atibaa.vercel.app'
+  const baseUrl = 'https://www.dalil-atibaa.com'
 
   const { data: specialties } = await supabase
     .from('specialties')

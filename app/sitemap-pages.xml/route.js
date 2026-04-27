@@ -1,5 +1,7 @@
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
-  const baseUrl = 'https://dalil-atibaa.vercel.app'
+  const baseUrl = 'https://www.dalil-atibaa.com'
 
   const urls = [
     { url: baseUrl, priority: '1.0', changefreq: 'daily' },
