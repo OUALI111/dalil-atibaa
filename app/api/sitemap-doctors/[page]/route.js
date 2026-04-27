@@ -1,9 +1,11 @@
 import { supabase } from '../../../../lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 const PAGE_SIZE = 50000
 
 export async function GET(request, context) {
-  const baseUrl = 'https://dalil-atibaa.vercel.app'
+const baseUrl = 'https://www.dalil-atibaa.com'
   const params = await context.params
   const page = parseInt(params.page) - 1
   const from = page * PAGE_SIZE
