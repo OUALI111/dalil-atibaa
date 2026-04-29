@@ -221,7 +221,7 @@ export default async function HomePage() {
               <span className="text-blue-200">en Algérie</span>
             </h1>
             <p className="text-blue-100 text-lg mb-10">
-              Recherchez parmi {totalDoctors?.toLocaleString()} médecins dans les 58 wilayas
+              Recherchez parmi les meilleurs médecins dans tous les  wilayas
             </p>
 
             {/* FORMULAIRE */}

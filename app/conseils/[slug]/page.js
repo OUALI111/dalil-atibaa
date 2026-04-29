@@ -2,20 +2,26 @@ import { supabase } from '../../../lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const { data: conseil } = await supabase
     .from('conseils')
-    .select('question_fr, answer_fr, specialties(name_fr), wilayas(name_fr)')
+    .select('question_fr, answer_fr, content_fr, meta_title, meta_description, specialties(name_fr), wilayas(name_fr)')
     .eq('slug', slug)
     .single()
 
   if (!conseil) return { title: 'Conseil introuvable' }
 
   return {
-    title: `${conseil.question_fr} | Dalil Atibaa`,
-    description: conseil.answer_fr?.substring(0, 160),
+    title: conseil.meta_title || `${conseil.question_fr} | Dalil Atibaa`,
+    description: conseil.meta_description || conseil.answer_fr?.substring(0, 160),
     alternates: { canonical: `https://www.dalil-atibaa.com/conseils/${slug}` },
+    openGraph: {
+      title: conseil.meta_title || conseil.question_fr,
+      description: conseil.meta_description || conseil.answer_fr?.substring(0, 160),
+    }
   }
 }
 
@@ -33,12 +39,21 @@ export default async function ConseilPage({ params }) {
 
   const { data: doctors } = await supabase
     .from('doctors')
-    .select('id, name_fr, slug, rating, address, wilayas(name_fr)')
+    .select('id, name_fr, slug, rating, address, phone, wilayas(name_fr)')
     .eq('specialty_id', conseil.specialty_id)
     .eq('is_active', true)
     .order('rating', { ascending: false })
-.order('id', { ascending: false })
+    .order('id', { ascending: false })
     .limit(6)
+
+  const { data: relatedConseils } = await supabase
+    .from('conseils')
+    .select('slug, question_fr, specialties(name_fr)')
+    .eq('specialty_id', conseil.specialty_id)
+    .eq('is_active', true)
+    .eq('lang', 'fr')
+    .neq('slug', slug)
+    .limit(4)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -48,7 +63,7 @@ export default async function ConseilPage({ params }) {
       name: conseil.question_fr,
       acceptedAnswer: {
         '@type': 'Answer',
-        text: conseil.answer_fr,
+        text: conseil.content_fr || conseil.answer_fr,
       }
     }]
   }
@@ -60,62 +75,196 @@ export default async function ConseilPage({ params }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="bg-white border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-2xl font-bold text-blue-700">Dalil Atibaa</Link>
-          <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium">
-            Rechercher un médecin
+      {/* HEADER */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <span className="font-bold text-gray-900">Dalil Atibaa</span>
           </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/conseils" className="hidden sm:block text-sm text-gray-600 hover:text-blue-600 transition">
+              💡 Conseils
+            </Link>
+            <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+              Trouver un médecin
+            </Link>
+          </div>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-3 text-sm text-gray-400 flex gap-2 items-center flex-wrap">
-        <Link href="/" className="hover:text-blue-600">Accueil</Link>
+      {/* BREADCRUMB */}
+      <div className="max-w-6xl mx-auto px-4 py-3 text-sm text-gray-400 flex gap-2 items-center flex-wrap">
+        <Link href="/" className="hover:text-blue-600 transition">Accueil</Link>
         <span>›</span>
-        <Link href="/conseils" className="hover:text-blue-600">Conseils</Link>
+        <Link href="/conseils" className="hover:text-blue-600 transition">Conseils</Link>
+        <span>›</span>
+        <Link href={`/specialites/${conseil.specialties?.slug}`} className="hover:text-blue-600 transition">
+          {conseil.specialties?.name_fr}
+        </Link>
         <span>›</span>
         <span className="text-gray-600 truncate max-w-xs">{conseil.question_fr}</span>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
+        {/* CONTENU PRINCIPAL */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-              {conseil.specialties?.name_fr}
-            </span>
-            <h1 className="text-2xl font-bold text-gray-900 mt-4 leading-snug">
-              {conseil.question_fr}
-            </h1>
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <p className="text-gray-700 leading-relaxed text-base">
-                {conseil.answer_fr}
-              </p>
-            </div>
-          </div>
 
+          {/* ARTICLE */}
+          <article className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            
+            {/* HEADER ARTICLE */}
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-8 text-white">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="bg-white/20 text-white text-xs font-medium px-3 py-1 rounded-full">
+                  {conseil.specialties?.name_fr}
+                </span>
+                <span className="bg-white/20 text-white text-xs px-3 py-1 rounded-full">
+                  ⏱ {conseil.read_time || 3} min de lecture
+                </span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold leading-snug text-gray-800">
+                {conseil.question_fr}
+              </h1>
+            </div>
+
+            {/* RÉPONSE COURTE */}
+            <div className="p-8 border-b border-gray-100">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center shrink-0 mt-1">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-green-600 uppercase tracking-wide mb-2">Réponse rapide</p>
+                  <p className="text-gray-700 leading-relaxed font-medium">{conseil.answer_fr}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CONTENU DÉTAILLÉ */}
+            {conseil.content_fr && (
+              <div className="p-8">
+                <div className="prose prose-gray max-w-none">
+                  {conseil.content_fr.split('\n\n').map((paragraph, i) => {
+                    if (paragraph.startsWith('## ')) {
+                      return (
+                        <h2 key={i} className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0">
+                          {paragraph.replace('## ', '')}
+                        </h2>
+                      )
+                    }
+                    if (paragraph.startsWith('- ')) {
+                      const items = paragraph.split('\n').filter(l => l.startsWith('- '))
+                      return (
+                        <ul key={i} className="space-y-2 my-4">
+                          {items.map((item, j) => (
+                            <li key={j} className="flex items-start gap-2 text-gray-700">
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 shrink-0" />
+                              {item.replace('- ', '')}
+                            </li>
+                          ))}
+                        </ul>
+                      )
+                    }
+                    return (
+                      <p key={i} className="text-gray-600 leading-relaxed mb-4">
+                        {paragraph}
+                      </p>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* CTA BOTTOM */}
+            <div className="mx-8 mb-8 bg-blue-50 border border-blue-100 rounded-2xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold text-gray-800 mb-1">Consultez un {conseil.specialties?.name_fr}</p>
+                  <p className="text-gray-600 text-sm mb-3">
+                    Ces informations sont générales. Pour un diagnostic précis, consultez un professionnel de santé.
+                  </p>
+                  <Link href={`/specialites/${conseil.specialties?.slug}`}
+                    className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-blue-700 transition">
+                    Trouver un {conseil.specialties?.name_fr} →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {/* MÉDECINS */}
           {doctors && doctors.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 className="font-bold text-gray-900 text-lg mb-4">
-                Meilleurs {conseil.specialties?.name_fr}s disponibles
-              </h2>
-              <div className="space-y-3">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-bold text-gray-900 text-lg">
+                  Meilleurs {conseil.specialties?.name_fr}s disponibles
+                </h2>
+                <Link href={`/specialites/${conseil.specialties?.slug}`}
+                  className="text-sm text-blue-600 hover:underline font-medium">
+                  Voir tous →
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {doctors.map(d => (
                   <Link key={d.id} href={`/docteur/${d.slug}`}>
-                    <div className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition">
+                    <div className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition group">
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
                         {d.name_fr?.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 truncate">{d.name_fr}</p>
-                        <p className="text-sm text-gray-500">{d.wilayas?.name_fr}</p>
+                        <p className="font-semibold text-gray-800 truncate text-sm group-hover:text-blue-700">{d.name_fr}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{d.wilayas?.name_fr}</p>
+                        {d.phone && (
+                          <p className="text-xs text-green-600 font-medium mt-0.5">{d.phone}</p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      <div className="shrink-0 text-right">
+                        <div className="flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          <span className="text-xs font-bold text-gray-700">{d.rating || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ARTICLES LIÉS */}
+          {relatedConseils && relatedConseils.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 className="font-bold text-gray-900 text-lg mb-4">Articles liés</h2>
+              <div className="space-y-3">
+                {relatedConseils.map(c => (
+                  <Link key={c.slug} href={`/conseils/${c.slug}`}>
+                    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition group">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
                         </svg>
-                        <span className="text-sm font-semibold text-gray-700">{d.rating}</span>
                       </div>
+                      <p className="text-sm text-gray-700 group-hover:text-blue-600 transition font-medium">
+                        {c.question_fr}
+                      </p>
+                      <svg className="w-4 h-4 text-gray-400 ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </div>
                   </Link>
                 ))}
@@ -124,21 +273,76 @@ export default async function ConseilPage({ params }) {
           )}
         </div>
 
+        {/* SIDEBAR */}
         <div className="space-y-4">
-          <div className="bg-blue-600 rounded-2xl p-6 text-white">
-            <h3 className="font-bold text-lg mb-2">Besoin d'un médecin ?</h3>
-            <p className="text-blue-100 text-sm mb-4">Trouvez le meilleur spécialiste près de chez vous</p>
+
+          {/* CTA PRINCIPAL */}
+          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white sticky top-20">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>     
+            <h3 className="font-bold text-gray-800 mb-2">Besoin d'un avis médical ?</h3>
+            <p className="text-gray-600 text-sm mb-5 leading-relaxed">
+              Consultez un {conseil.specialties?.name_fr} qualifié près de chez vous en Algérie.
+            </p>
             <Link href={`/specialites/${conseil.specialties?.slug}`}
-              className="block text-center bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition">
-              Voir tous les {conseil.specialties?.name_fr}s
+              className="block text-center bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
+              Trouver un {conseil.specialties?.name_fr}
+            </Link>
+            <Link href="/recherche"
+              className="block text-center text-white/80 hover:text-white text-sm mt-3 transition">
+              Recherche avancée →
             </Link>
           </div>
-        </div>
 
+          {/* INFO CARD */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚕️</span>
+              <div>
+                <p className="font-semibold text-amber-800 text-sm mb-1">Avertissement médical</p>
+                <p className="text-amber-700 text-xs leading-relaxed">
+                  Les informations de cet article sont à titre indicatif uniquement. Consultez toujours un professionnel de santé pour un diagnostic.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* SPÉCIALITÉ */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Spécialité</p>
+            <Link href={`/specialites/${conseil.specialties?.slug}`}
+              className="flex items-center gap-3 group">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 group-hover:text-blue-600 transition">{conseil.specialties?.name_fr}</p>
+                <p className="text-xs text-gray-500">Voir tous les médecins →</p>
+              </div>
+            </Link>
+          </div>
+
+        </div>
       </div>
 
-      <footer className="bg-gray-900 text-gray-400 py-8 text-center text-sm mt-8">
-        <p>2026 Dalil Atibaa - Annuaire des médecins en Algérie</p>
+      {/* FOOTER */}
+      <footer className="bg-gray-900 text-gray-400 py-10 mt-12">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <p className="font-bold text-white text-lg mb-2">Dalil Atibaa</p>
+          <p className="text-sm mb-4">Annuaire des médecins en Algérie</p>
+          <div className="flex justify-center gap-6 text-sm flex-wrap">
+            <Link href="/" className="hover:text-white transition">Accueil</Link>
+            <Link href="/conseils" className="hover:text-white transition">Conseils</Link>
+            <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
+            <Link href="/contact" className="hover:text-white transition">Contact</Link>
+          </div>
+          <p className="text-xs mt-6">© 2026 Dalil Atibaa — Tous droits réservés</p>
+        </div>
       </footer>
     </main>
   )
