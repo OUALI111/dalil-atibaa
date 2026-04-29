@@ -12,11 +12,67 @@ const supabase = createClient(
 )
 
 function generateSlug(name, wilayaName, id) {
+  const arabicMap = {
+    'ا':'a','أ':'a','إ':'a','آ':'a','ب':'b','ت':'t','ث':'th',
+    'ج':'dj','ح':'h','خ':'kh','د':'d','ذ':'dh','ر':'r','ز':'z',
+    'س':'s','ش':'ch','ص':'s','ض':'d','ط':'t','ظ':'dh','ع':'a',
+    'غ':'gh','ف':'f','ق':'k','ك':'k','ل':'l','م':'m','ن':'n',
+    'ه':'h','و':'w','ي':'y','ى':'a','ة':'a','ء':'','ئ':'y',
+    'ؤ':'w','لا':'la','َ':'','ُ':'','ِ':'','ّ':'','ً':'','ٌ':'','ٍ':'',
+  }
+
   let text = (name + ' ' + (wilayaName || '')).toLowerCase()
-  const map = { é:'e',è:'e',ê:'e',à:'a',â:'a',î:'i',ô:'o',ù:'u',û:'u',ç:'c',ë:'e',ï:'i' }
-  text = text.replace(/[éèêàâîôùûçëï]/g, c => map[c] || c)
+
+  // تحويل الحروف العربية
+  text = text.replace(/[أإآا]/g, 'a')
+  text = text.replace(/ب/g, 'b')
+  text = text.replace(/ت/g, 't')
+  text = text.replace(/ث/g, 'th')
+  text = text.replace(/ج/g, 'dj')
+  text = text.replace(/ح/g, 'h')
+  text = text.replace(/خ/g, 'kh')
+  text = text.replace(/د/g, 'd')
+  text = text.replace(/ذ/g, 'dh')
+  text = text.replace(/ر/g, 'r')
+  text = text.replace(/ز/g, 'z')
+  text = text.replace(/س/g, 's')
+  text = text.replace(/ش/g, 'ch')
+  text = text.replace(/ص/g, 's')
+  text = text.replace(/ض/g, 'd')
+  text = text.replace(/ط/g, 't')
+  text = text.replace(/ظ/g, 'dh')
+  text = text.replace(/ع/g, 'a')
+  text = text.replace(/غ/g, 'gh')
+  text = text.replace(/ف/g, 'f')
+  text = text.replace(/ق/g, 'k')
+  text = text.replace(/ك/g, 'k')
+  text = text.replace(/ل/g, 'l')
+  text = text.replace(/م/g, 'm')
+  text = text.replace(/ن/g, 'n')
+  text = text.replace(/ه/g, 'h')
+  text = text.replace(/و/g, 'w')
+  text = text.replace(/[يى]/g, 'y')
+  text = text.replace(/ة/g, 'a')
+  text = text.replace(/[ءئؤ]/g, '')
+  text = text.replace(/[\u064B-\u065F]/g, '') // حذف التشكيل
+
+  // تحويل الحروف الفرنسية
+  const frMap = { é:'e',è:'e',ê:'e',à:'a',â:'a',î:'i',ô:'o',ù:'u',û:'u',ç:'c',ë:'e',ï:'i' }
+  text = text.replace(/[éèêàâîôùûçëï]/g, c => frMap[c] || c)
+
   text = text.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
   return text + '-' + id
+}
+
+function generateConseilSlug(text, lang) {
+  if (lang === 'ar') {
+    return text.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\u0600-\u06FF-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 80) + '-' + Date.now().toString().slice(-6)
+  }
+  let slug = text.toLowerCase()
+  const map = { é:'e',è:'e',ê:'e',à:'a',â:'a',î:'i',ô:'o',ù:'u',û:'u',ç:'c',ë:'e',ï:'i' }
+  slug = slug.replace(/[éèêàâîôùûçëï]/g, c => map[c] || c)
+  slug = slug.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 80)
+  return slug
 }
 
 export default function AdminDashboard() {
@@ -38,6 +94,11 @@ export default function AdminDashboard() {
   const [formLoading, setFormLoading] = useState(false)
   const [formSuccess, setFormSuccess] = useState('')
   const [formError, setFormError] = useState('')
+
+  const [conseilForm, setConseilForm] = useState({ lang:'fr', question_fr:'', answer_fr:'', question_ar:'', answer_ar:'', specialty_id:'', wilaya_id:'' })
+  const [conseilLoading, setConseilLoading] = useState(false)
+  const [conseilSuccess, setConseilSuccess] = useState('')
+  const [conseilError, setConseilError] = useState('')
 
   useEffect(() => {
     const auth = sessionStorage.getItem('admin_auth')
@@ -124,7 +185,6 @@ export default function AdminDashboard() {
 
     try {
       const wilayaName = wilayas.find(w => w.id == form.wilaya_id)?.name_fr || ''
-
       const insertData = {
         name_fr: form.name_fr.trim(),
         specialty_id: parseInt(form.specialty_id),
@@ -138,30 +198,71 @@ export default function AdminDashboard() {
         slug: 'temp-slug',
       }
 
-      const { data, error: insertError } = await supabase
-        .from('doctors')
-        .insert(insertData)
-        .select('id')
-        .single()
-
+      const { data, error: insertError } = await supabase.from('doctors').insert(insertData).select('id').single()
       if (insertError) throw insertError
 
       const slug = generateSlug(form.name_fr, wilayaName, data.id)
+      await supabase.from('doctors').update({ slug, search_vector: null }).eq('id', data.id)
 
-      await supabase.from('doctors').update({
-        slug,
-        search_vector: null,
-      }).eq('id', data.id)
-
-      setFormSuccess(`✅ Dr. ${form.name_fr} ajouté avec succès ! Slug : ${slug}`)
+      setFormSuccess(`✅ Dr. ${form.name_fr} ajouté ! Slug : ${slug}`)
       setForm({ name_fr:'', specialty_id:'', wilaya_id:'', phone:'', address:'', google_map_url:'', rating:'' })
       fetchStats()
       fetchRecentDoctors()
     } catch (err) {
       setFormError('Erreur : ' + err.message)
     }
-
     setFormLoading(false)
+  }
+
+  async function handleAddConseil(e) {
+    e.preventDefault()
+    setConseilLoading(true)
+    setConseilSuccess('')
+    setConseilError('')
+
+    const isFr = conseilForm.lang === 'fr'
+
+    if (isFr && (!conseilForm.question_fr || !conseilForm.answer_fr)) {
+      setConseilError('Question et réponse en français sont obligatoires')
+      setConseilLoading(false)
+      return
+    }
+    if (!isFr && (!conseilForm.question_ar || !conseilForm.answer_ar)) {
+      setConseilError('السؤال والجواب بالعربية إلزاميان')
+      setConseilLoading(false)
+      return
+    }
+    if (!conseilForm.specialty_id) {
+      setConseilError('La spécialité est obligatoire')
+      setConseilLoading(false)
+      return
+    }
+
+    try {
+      const questionText = isFr ? conseilForm.question_fr : conseilForm.question_ar
+      const slug = generateConseilSlug(questionText, conseilForm.lang)
+
+      const insertData = {
+        slug,
+        lang: conseilForm.lang,
+        question_fr: conseilForm.question_fr || null,
+        answer_fr: conseilForm.answer_fr || null,
+        question_ar: conseilForm.question_ar || null,
+        answer_ar: conseilForm.answer_ar || null,
+        specialty_id: parseInt(conseilForm.specialty_id),
+        wilaya_id: conseilForm.wilaya_id ? parseInt(conseilForm.wilaya_id) : null,
+        is_active: true,
+      }
+
+      const { error: insertError } = await supabase.from('conseils').insert(insertData)
+      if (insertError) throw insertError
+
+      setConseilSuccess(`✅ Conseil ajouté ! URL : /${isFr ? '' : 'ar/'}conseils/${slug}`)
+      setConseilForm({ lang:'fr', question_fr:'', answer_fr:'', question_ar:'', answer_ar:'', specialty_id:'', wilaya_id:'' })
+    } catch (err) {
+      setConseilError('Erreur : ' + err.message)
+    }
+    setConseilLoading(false)
   }
 
   if (!isAuthenticated) {
@@ -202,7 +303,8 @@ export default function AdminDashboard() {
 
   const tabs = [
     { id:'stats', label:'Statistiques' },
-    { id:'add', label:'➕ Ajouter médecin' },
+    { id:'add', label:'➕ Médecin' },
+    { id:'conseil', label:'✍️ Conseil' },
     { id:'recent', label:'Derniers ajouts' },
     { id:'problems', label:'Problèmes' },
     { id:'logs', label:'Erreurs 404' },
@@ -232,7 +334,6 @@ export default function AdminDashboard() {
           <div className="text-center py-20 text-gray-400">Chargement...</div>
         ) : (
           <>
-            {/* STATS CARDS */}
             {stats && (
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                 {[
@@ -250,7 +351,6 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* TABS */}
             <div className="flex gap-2 mb-6 flex-wrap">
               {tabs.map(tab => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -260,22 +360,116 @@ export default function AdminDashboard() {
               ))}
             </div>
 
+            {/* TAB: ADD CONSEIL */}
+            {activeTab === 'conseil' && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-2xl">
+                <h2 className="font-bold text-gray-800 mb-6 text-lg">✍️ Ajouter un conseil médical</h2>
+
+                {conseilSuccess && (
+                  <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+                    {conseilSuccess}
+                  </div>
+                )}
+                {conseilError && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-4">
+                    {conseilError}
+                  </div>
+                )}
+
+                <form onSubmit={handleAddConseil} className="space-y-4">
+
+                  {/* اختيار اللغة */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">Langue *</label>
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => setConseilForm({...conseilForm, lang:'fr'})}
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium border transition ${conseilForm.lang === 'fr' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+                        🇫🇷 Français
+                      </button>
+                      <button type="button" onClick={() => setConseilForm({...conseilForm, lang:'ar'})}
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium border transition ${conseilForm.lang === 'ar' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+                        🇩🇿 عربي
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* حقول الفرنسية */}
+                  {conseilForm.lang === 'fr' && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Question (FR) *</label>
+                        <input type="text" value={conseilForm.question_fr}
+                          onChange={e => setConseilForm({...conseilForm, question_fr: e.target.value})}
+                          placeholder="Quand consulter un dentiste pour..."
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Réponse (FR) *</label>
+                        <textarea rows={4} value={conseilForm.answer_fr}
+                          onChange={e => setConseilForm({...conseilForm, answer_fr: e.target.value})}
+                          placeholder="Réponse claire en 3-4 lignes..."
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none" />
+                      </div>
+                    </>
+                  )}
+
+                  {/* حقول العربية */}
+                  {conseilForm.lang === 'ar' && (
+                    <>
+                      <div dir="rtl">
+                        <label className="text-sm font-medium text-gray-700 block mb-1">السؤال *</label>
+                        <input type="text" value={conseilForm.question_ar}
+                          onChange={e => setConseilForm({...conseilForm, question_ar: e.target.value})}
+                          placeholder="متى يجب أن أزور طبيب الأسنان..."
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 text-right" />
+                      </div>
+                      <div dir="rtl">
+                        <label className="text-sm font-medium text-gray-700 block mb-1">الجواب *</label>
+                        <textarea rows={4} value={conseilForm.answer_ar}
+                          onChange={e => setConseilForm({...conseilForm, answer_ar: e.target.value})}
+                          placeholder="جواب واضح من 3 إلى 4 أسطر..."
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none text-right" />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">Spécialité *</label>
+                      <select value={conseilForm.specialty_id}
+                        onChange={e => setConseilForm({...conseilForm, specialty_id: e.target.value})}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
+                        <option value="">Choisir...</option>
+                        {specialties.map(s => <option key={s.id} value={s.id}>{s.name_fr}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">Wilaya (optionnel)</label>
+                      <select value={conseilForm.wilaya_id}
+                        onChange={e => setConseilForm({...conseilForm, wilaya_id: e.target.value})}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
+                        <option value="">Toutes wilayas</option>
+                        {wilayas.map(w => <option key={w.id} value={w.id}>{w.name_fr}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button type="submit" disabled={conseilLoading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-3 rounded-xl text-sm transition">
+                      {conseilLoading ? 'Enregistrement...' : '✍️ Publier le conseil'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
             {/* TAB: ADD DOCTOR */}
             {activeTab === 'add' && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-2xl">
                 <h2 className="font-bold text-gray-800 mb-6 text-lg">Ajouter un médecin</h2>
-
-                {formSuccess && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
-                    {formSuccess}
-                  </div>
-                )}
-                {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-4">
-                    {formError}
-                  </div>
-                )}
-
+                {formSuccess && <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">{formSuccess}</div>}
+                {formError && <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-4">{formError}</div>}
                 <form onSubmit={handleAddDoctor} className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">Nom du médecin / cabinet *</label>
@@ -283,7 +477,6 @@ export default function AdminDashboard() {
                       placeholder="Dr. Mohammed Benali"
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-700 block mb-1">Spécialité *</label>
@@ -302,47 +495,39 @@ export default function AdminDashboard() {
                       </select>
                     </div>
                   </div>
-
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">Téléphone</label>
                     <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
                       placeholder="0555 123 456"
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
-
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">Adresse</label>
                     <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})}
                       placeholder="12 Rue Didouche Mourad, Alger"
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
-
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">Lien Google Maps</label>
                     <input type="text" value={form.google_map_url} onChange={e => setForm({...form, google_map_url: e.target.value})}
                       placeholder="https://maps.google.com/..."
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
-
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">Note (0 à 5)</label>
                     <input type="number" min="0" max="5" step="0.1" value={form.rating} onChange={e => setForm({...form, rating: e.target.value})}
                       placeholder="4.5"
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
-
                   <div className="pt-2">
                     <button type="submit" disabled={formLoading}
                       className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-3 rounded-xl text-sm transition">
                       {formLoading ? 'Enregistrement...' : 'Enregistrer le médecin'}
                     </button>
                   </div>
-
                   {form.name_fr && form.wilaya_id && (
                     <p className="text-xs text-gray-400 text-center">
-                      Slug généré : <span className="font-mono text-blue-500">
-                        {generateSlug(form.name_fr, wilayas.find(w => w.id == form.wilaya_id)?.name_fr || '', 'ID')}
-                      </span>
+                      Slug : <span className="font-mono text-blue-500">{generateSlug(form.name_fr, wilayas.find(w => w.id == form.wilaya_id)?.name_fr || '', 'ID')}</span>
                     </p>
                   )}
                 </form>
@@ -367,7 +552,6 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 </div>
-
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="font-bold text-gray-800 mb-4">Couverture</h2>
                   <div className="space-y-3">
@@ -383,7 +567,6 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 </div>
-
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="font-bold text-gray-800 mb-4">Qualité des données</h2>
                   <div className="space-y-3">
@@ -400,7 +583,6 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 </div>
-
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="font-bold text-gray-800 mb-4">Erreurs 404</h2>
                   <div className="space-y-3">
@@ -434,9 +616,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-3 text-gray-400 text-xs">{d.id}</td>
                         <td className="px-6 py-3 text-gray-700 font-medium">{d.name_fr || '—'}</td>
                         <td className="px-6 py-3 text-gray-400 text-xs font-mono">{d.slug}</td>
-                        <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
-                          {new Date(d.created_at).toLocaleDateString('fr-DZ')}
-                        </td>
+                        <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">{new Date(d.created_at).toLocaleDateString('fr-DZ')}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -460,7 +640,6 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
-
                 {[
                   { title:'Médecins sans téléphone', data:problemDoctors.noPhone, color:'text-red-500' },
                   { title:'Médecins sans adresse', data:problemDoctors.noAddress, color:'text-orange-500' },
@@ -469,10 +648,7 @@ export default function AdminDashboard() {
                 ].map((section, si) => section.data.length > 0 && (
                   <div key={si} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100">
-                      <h2 className="font-bold text-gray-800">
-                        {section.title}
-                        <span className={`ml-2 text-sm font-normal ${section.color}`}>({section.data.length})</span>
-                      </h2>
+                      <h2 className="font-bold text-gray-800">{section.title} <span className={`ml-2 text-sm font-normal ${section.color}`}>({section.data.length})</span></h2>
                     </div>
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50">
@@ -517,9 +693,7 @@ export default function AdminDashboard() {
                       {logs404.map((log, i) => (
                         <tr key={i} className="hover:bg-gray-50">
                           <td className="px-6 py-3 text-gray-700 font-mono text-xs">{log.url || log.path || '—'}</td>
-                          <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
-                            {new Date(log.created_at).toLocaleString('fr-DZ')}
-                          </td>
+                          <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">{new Date(log.created_at).toLocaleString('fr-DZ')}</td>
                         </tr>
                       ))}
                     </tbody>

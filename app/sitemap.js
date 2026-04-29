@@ -32,6 +32,10 @@ export default async function sitemap() {
       url: `${baseUrl}/sitemap-specialites.xml`,
       lastModified: new Date(),
     },
+    {
+  url: `${baseUrl}/sitemap-conseils.xml`,
+  lastModified: new Date(),
+   },
     ...doctorSitemaps,
   ]
 }

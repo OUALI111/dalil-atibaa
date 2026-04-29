@@ -189,9 +189,11 @@ export default async function HomePage() {
               <span className="text-xl font-bold text-gray-900">Dalil Atibaa</span>
             </Link>
             <div className="flex items-center gap-3">
-              <span className="hidden sm:flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
-                🇩🇿 {totalDoctors?.toLocaleString()} médecins
-              </span>
+              
+              <Link href="/conseils"
+                className="hidden sm:flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 font-medium transition">
+                 Conseils
+              </Link>
               <Link href="/recherche"
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,11 +421,12 @@ export default async function HomePage() {
                 <span className="text-white font-bold text-lg">Dalil Atibaa</span>
               </div>
               <div className="flex gap-6 text-sm flex-wrap justify-center">
-                <Link href="/" className="hover:text-white transition">Accueil</Link>
-                <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
-                <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
-                <Link href="/contact" className="hover:text-white transition">Contact</Link>
-              </div>
+  <Link href="/" className="hover:text-white transition">Accueil</Link>
+  <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
+  <Link href="/conseils" className="hover:text-white transition">Conseils</Link>
+  <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
+  <Link href="/contact" className="hover:text-white transition">Contact</Link>
+</div>
             </div>
             <div className="border-t border-gray-800 pt-6 text-center text-sm">
               <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
