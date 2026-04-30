@@ -8,7 +8,7 @@ export async function generateMetadata({ params }) {
   const { slug } = await params
   const { data: conseil } = await supabase
     .from('conseils')
-    .select('question_fr, answer_fr, content_fr, meta_title, meta_description, specialties(name_fr), wilayas(name_fr)')
+    .select('question_fr, answer_fr, content_fr, meta_title, meta_description, specialties(name_fr)')
     .eq('slug', slug)
     .single()
 
@@ -23,6 +23,39 @@ export async function generateMetadata({ params }) {
       description: conseil.meta_description || conseil.answer_fr?.substring(0, 160),
     }
   }
+}
+
+function renderContent(content) {
+  if (!content) return null
+  return content.split('\n\n').map((block, i) => {
+    const trimmed = block.trim()
+    if (!trimmed) return null
+    if (trimmed.includes('\n- ') || trimmed.startsWith('- ')) {
+      const items = trimmed.split('\n').filter(l => l.trim().startsWith('- '))
+      return (
+        <ul key={i} className="space-y-2 my-4">
+          {items.map((item, j) => (
+            <li key={j} className="flex items-start gap-2 text-gray-700">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 shrink-0" />
+              <span>{item.replace(/^-\s*/, '')}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    if (trimmed.length < 80 && !trimmed.endsWith('.') && !trimmed.endsWith(',')) {
+      return (
+        <h2 key={i} className="text-xl font-bold text-gray-900 mt-6 mb-2">
+          {trimmed}
+        </h2>
+      )
+    }
+    return (
+      <p key={i} className="text-gray-600 leading-relaxed">
+        {trimmed}
+      </p>
+    )
+  })
 }
 
 export default async function ConseilPage({ params }) {
@@ -75,7 +108,6 @@ export default async function ConseilPage({ params }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* HEADER */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2">
@@ -97,7 +129,6 @@ export default async function ConseilPage({ params }) {
         </div>
       </header>
 
-      {/* BREADCRUMB */}
       <div className="max-w-6xl mx-auto px-4 py-3 text-sm text-gray-400 flex gap-2 items-center flex-wrap">
         <Link href="/" className="hover:text-blue-600 transition">Accueil</Link>
         <span>›</span>
@@ -112,13 +143,10 @@ export default async function ConseilPage({ params }) {
 
       <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        {/* CONTENU PRINCIPAL */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* ARTICLE */}
           <article className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            
-            {/* HEADER ARTICLE */}
+
             <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-8 text-white">
               <div className="flex items-center gap-2 mb-4">
                 <span className="bg-white/20 text-white text-xs font-medium px-3 py-1 rounded-full">
@@ -128,12 +156,11 @@ export default async function ConseilPage({ params }) {
                   ⏱ {conseil.read_time || 3} min de lecture
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold leading-snug text-gray-800">
+              <h1 className="text-2xl md:text-3xl font-bold leading-snug">
                 {conseil.question_fr}
               </h1>
             </div>
 
-            {/* RÉPONSE COURTE */}
             <div className="p-8 border-b border-gray-100">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center shrink-0 mt-1">
@@ -148,68 +175,12 @@ export default async function ConseilPage({ params }) {
               </div>
             </div>
 
-            {/* CONTENU DÉTAILLÉ */}
             {conseil.content_fr && (
               <div className="p-8">
-                <div className="prose prose-gray max-w-none">
-                  {conseil.content_fr.split(/\n\n+/).map((paragraph, i) => {
-  const trimmed = paragraph.trim()
-  if (trimmed.startsWith('## ')) {
-    return (
-      <h2 key={i} className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0">
-        {trimmed.replace('## ', '')}
-      </h2>
-    )
-  }
-  if (trimmed.startsWith('- ')) {
-    const items = trimmed.split('\n').filter(l => l.trim().startsWith('- '))
-    return (
-      <ul key={i} className="space-y-2 my-4">
-        {items.map((item, j) => (
-          <li key={j} className="flex items-start gap-2 text-gray-700">
-            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 shrink-0" />
-            {item.replace('- ', '')}
-          </li>
-        ))}
-      </ul>
-    )
-  }
-  return (
-    <p key={i} className="text-gray-600 leading-relaxed mb-4">
-      {trimmed}
-    </p>
-  )
-})}
-                      return (
-                        <h2 key={i} className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0">
-                          {paragraph.replace('## ', '')}
-                        </h2>
-                      )
-                    }
-                    if (paragraph.startsWith('- ')) {
-                      const items = paragraph.split('\n').filter(l => l.startsWith('- '))
-                      return (
-                        <ul key={i} className="space-y-2 my-4">
-                          {items.map((item, j) => (
-                            <li key={j} className="flex items-start gap-2 text-gray-700">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 shrink-0" />
-                              {item.replace('- ', '')}
-                            </li>
-                          ))}
-                        </ul>
-                      )
-                    }
-                    return (
-                      <p key={i} className="text-gray-600 leading-relaxed mb-4">
-                        {paragraph}
-                      </p>
-                    )
-                  })}
-                </div>
+                {renderContent(conseil.content_fr)}
               </div>
             )}
 
-            {/* CTA BOTTOM */}
             <div className="mx-8 mb-8 bg-blue-50 border border-blue-100 rounded-2xl p-6">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
@@ -231,7 +202,6 @@ export default async function ConseilPage({ params }) {
             </div>
           </article>
 
-          {/* MÉDECINS */}
           {doctors && doctors.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-5">
@@ -257,7 +227,7 @@ export default async function ConseilPage({ params }) {
                           <p className="text-xs text-green-600 font-medium mt-0.5">{d.phone}</p>
                         )}
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0">
                         <div className="flex items-center gap-1">
                           <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -272,7 +242,6 @@ export default async function ConseilPage({ params }) {
             </div>
           )}
 
-          {/* ARTICLES LIÉS */}
           {relatedConseils && relatedConseils.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="font-bold text-gray-900 text-lg mb-4">Articles liés</h2>
@@ -299,18 +268,15 @@ export default async function ConseilPage({ params }) {
           )}
         </div>
 
-        {/* SIDEBAR */}
         <div className="space-y-4">
-
-          {/* CTA PRINCIPAL */}
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white sticky top-20">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-            </div>     
-            <h3 className="font-bold text-gray-800 mb-2">Besoin d'un avis médical ?</h3>
-            <p className="text-gray-600 text-sm mb-5 leading-relaxed">
+            </div>
+            <h3 className="font-bold text-lg mb-2">Besoin d&apos;un avis médical ?</h3>
+            <p className="text-blue-100 text-sm mb-5 leading-relaxed">
               Consultez un {conseil.specialties?.name_fr} qualifié près de chez vous en Algérie.
             </p>
             <Link href={`/specialites/${conseil.specialties?.slug}`}
@@ -323,7 +289,6 @@ export default async function ConseilPage({ params }) {
             </Link>
           </div>
 
-          {/* INFO CARD */}
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
             <div className="flex items-start gap-3">
               <span className="text-2xl">⚕️</span>
@@ -336,11 +301,9 @@ export default async function ConseilPage({ params }) {
             </div>
           </div>
 
-          {/* SPÉCIALITÉ */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Spécialité</p>
-            <Link href={`/specialites/${conseil.specialties?.slug}`}
-              className="flex items-center gap-3 group">
+            <Link href={`/specialites/${conseil.specialties?.slug}`} className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
@@ -352,11 +315,9 @@ export default async function ConseilPage({ params }) {
               </div>
             </Link>
           </div>
-
         </div>
       </div>
 
-      {/* FOOTER */}
       <footer className="bg-gray-900 text-gray-400 py-10 mt-12">
         <div className="max-w-6xl mx-auto px-4 text-center">
           <p className="font-bold text-white text-lg mb-2">Dalil Atibaa</p>
