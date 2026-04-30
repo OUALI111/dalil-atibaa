@@ -429,7 +429,7 @@ export default async function HomePage() {
 </div>
             </div>
             <div className="border-t border-gray-800 pt-6 text-center text-sm">
-              <p>© 2025 Dalil Atibaa — Annuaire des médecins en Algérie</p>
+              <p>© 2026 Dalil Atibaa — Annuaire des médecins en Algérie</p>
             </div>
           </div>
         </footer>
