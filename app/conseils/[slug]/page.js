@@ -152,8 +152,34 @@ export default async function ConseilPage({ params }) {
             {conseil.content_fr && (
               <div className="p-8">
                 <div className="prose prose-gray max-w-none">
-                  {conseil.content_fr.split('\n\n').map((paragraph, i) => {
-                    if (paragraph.startsWith('## ')) {
+                  {conseil.content_fr.split(/\n\n+/).map((paragraph, i) => {
+  const trimmed = paragraph.trim()
+  if (trimmed.startsWith('## ')) {
+    return (
+      <h2 key={i} className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0">
+        {trimmed.replace('## ', '')}
+      </h2>
+    )
+  }
+  if (trimmed.startsWith('- ')) {
+    const items = trimmed.split('\n').filter(l => l.trim().startsWith('- '))
+    return (
+      <ul key={i} className="space-y-2 my-4">
+        {items.map((item, j) => (
+          <li key={j} className="flex items-start gap-2 text-gray-700">
+            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 shrink-0" />
+            {item.replace('- ', '')}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  return (
+    <p key={i} className="text-gray-600 leading-relaxed mb-4">
+      {trimmed}
+    </p>
+  )
+})}
                       return (
                         <h2 key={i} className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0">
                           {paragraph.replace('## ', '')}
