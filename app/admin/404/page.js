@@ -12,18 +12,8 @@ const supabase = createClient(
 )
 
 function generateSlug(name, wilayaName, id) {
-  const arabicMap = {
-    'ا':'a','أ':'a','إ':'a','آ':'a','ب':'b','ت':'t','ث':'th',
-    'ج':'dj','ح':'h','خ':'kh','د':'d','ذ':'dh','ر':'r','ز':'z',
-    'س':'s','ش':'ch','ص':'s','ض':'d','ط':'t','ظ':'dh','ع':'a',
-    'غ':'gh','ف':'f','ق':'k','ك':'k','ل':'l','م':'m','ن':'n',
-    'ه':'h','و':'w','ي':'y','ى':'a','ة':'a','ء':'','ئ':'y',
-    'ؤ':'w','لا':'la','َ':'','ُ':'','ِ':'','ّ':'','ً':'','ٌ':'','ٍ':'',
-  }
-
   let text = (name + ' ' + (wilayaName || '')).toLowerCase()
 
-  // تحويل الحروف العربية
   text = text.replace(/[أإآا]/g, 'a')
   text = text.replace(/ب/g, 'b')
   text = text.replace(/ت/g, 't')
@@ -54,9 +44,8 @@ function generateSlug(name, wilayaName, id) {
   text = text.replace(/[يى]/g, 'y')
   text = text.replace(/ة/g, 'a')
   text = text.replace(/[ءئؤ]/g, '')
-  text = text.replace(/[\u064B-\u065F]/g, '') // حذف التشكيل
+  text = text.replace(/[\u064B-\u065F]/g, '')
 
-  // تحويل الحروف الفرنسية
   const frMap = { é:'e',è:'e',ê:'e',à:'a',â:'a',î:'i',ô:'o',ù:'u',û:'u',ç:'c',ë:'e',ï:'i' }
   text = text.replace(/[éèêàâîôùûçëï]/g, c => frMap[c] || c)
 
@@ -214,7 +203,7 @@ export default function AdminDashboard() {
     setFormLoading(false)
   }
 
- async function handleAddConseil(e) {
+  async function handleAddConseil(e) {
     e.preventDefault()
     setConseilLoading(true)
     setConseilSuccess('')
@@ -237,33 +226,6 @@ export default function AdminDashboard() {
       setConseilLoading(false)
       return
     }
-
-    try {
-      const questionText = isFr ? conseilForm.question_fr : conseilForm.question_ar
-      const slug = generateConseilSlug(questionText, conseilForm.lang)
-
-      const insertData = {
-        slug,
-        lang: conseilForm.lang,
-        question_fr: isFr ? conseilForm.question_fr : `ar-${slug}`,
-        answer_fr: isFr ? conseilForm.answer_fr : '',
-        question_ar: conseilForm.question_ar || null,
-        answer_ar: conseilForm.answer_ar || null,
-        specialty_id: parseInt(conseilForm.specialty_id),
-        wilaya_id: conseilForm.wilaya_id ? parseInt(conseilForm.wilaya_id) : null,
-        is_active: true,
-      }
-
-      const { error: insertError } = await supabase.from('conseils').insert(insertData)
-      if (insertError) throw insertError
-
-      setConseilSuccess(`✅ Conseil ajouté ! URL : /${isFr ? '' : 'ar/'}conseils/${slug}`)
-      setConseilForm({ lang:'fr', question_fr:'', answer_fr:'', question_ar:'', answer_ar:'', specialty_id:'', wilaya_id:'' })
-    } catch (err) {
-      setConseilError('Erreur : ' + err.message)
-    }
-    setConseilLoading(false)
-  }
 
     try {
       const questionText = isFr ? conseilForm.question_fr : conseilForm.question_ar
@@ -404,8 +366,6 @@ export default function AdminDashboard() {
                 )}
 
                 <form onSubmit={handleAddConseil} className="space-y-4">
-
-                  {/* اختيار اللغة */}
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-2">Langue *</label>
                     <div className="flex gap-3">
@@ -420,7 +380,6 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* حقول الفرنسية */}
                   {conseilForm.lang === 'fr' && (
                     <>
                       <div>
@@ -440,7 +399,6 @@ export default function AdminDashboard() {
                     </>
                   )}
 
-                  {/* حقول العربية */}
                   {conseilForm.lang === 'ar' && (
                     <>
                       <div dir="rtl">
