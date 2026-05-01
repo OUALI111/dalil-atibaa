@@ -127,9 +127,9 @@ export default async function DoctorPage({ params }) {
 
       <header className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-2xl font-bold text-blue-700">
-            Dalil Atibaa
-          </Link>
+          <Link href="/">
+  <img src="/logo.svg" alt="Dalil Atibaa" style={{height:'36px', width:'auto'}} />
+</Link>
           <Link href="/recherche"
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -423,7 +423,7 @@ export default async function DoctorPage({ params }) {
       </div>
 
       <footer className="bg-gray-900 text-gray-400 py-8 text-center text-sm mt-8">
-        <p>2025 Dalil Atibaa - Annuaire des medecins en Algerie</p>
+        <p>2026 Dalil Atibaa - Annuaire des medecins en Algerie</p>
       </footer>
 
     </main>

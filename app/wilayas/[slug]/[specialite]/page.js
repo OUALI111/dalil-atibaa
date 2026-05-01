@@ -81,9 +81,9 @@ export default async function WilayaSpecialitePage({ params, searchParams }) {
 
       <header className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4">
-          <Link href="/" className="text-2xl font-bold text-blue-700">
-            Dalil Atibaa
-          </Link>
+          <Link href="/">
+  <img src="/logo.svg" alt="Dalil Atibaa" style={{height:'36px', width:'auto'}} />
+</Link>
         </div>
       </header>
 
@@ -257,7 +257,7 @@ export default async function WilayaSpecialitePage({ params, searchParams }) {
       </div>
 
       <footer className="bg-gray-800 text-gray-400 py-8 text-center text-sm mt-8">
-        2025 Dalil Atibaa - Annuaire des medecins en Algerie
+        2026 Dalil Atibaa - Annuaire des medecins en Algerie
       </footer>
 
     </main>
