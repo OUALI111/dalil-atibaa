@@ -214,7 +214,7 @@ export default function AdminDashboard() {
     setFormLoading(false)
   }
 
-  async function handleAddConseil(e) {
+ async function handleAddConseil(e) {
     e.preventDefault()
     setConseilLoading(true)
     setConseilSuccess('')
@@ -237,6 +237,33 @@ export default function AdminDashboard() {
       setConseilLoading(false)
       return
     }
+
+    try {
+      const questionText = isFr ? conseilForm.question_fr : conseilForm.question_ar
+      const slug = generateConseilSlug(questionText, conseilForm.lang)
+
+      const insertData = {
+        slug,
+        lang: conseilForm.lang,
+        question_fr: isFr ? conseilForm.question_fr : `ar-${slug}`,
+        answer_fr: isFr ? conseilForm.answer_fr : '',
+        question_ar: conseilForm.question_ar || null,
+        answer_ar: conseilForm.answer_ar || null,
+        specialty_id: parseInt(conseilForm.specialty_id),
+        wilaya_id: conseilForm.wilaya_id ? parseInt(conseilForm.wilaya_id) : null,
+        is_active: true,
+      }
+
+      const { error: insertError } = await supabase.from('conseils').insert(insertData)
+      if (insertError) throw insertError
+
+      setConseilSuccess(`✅ Conseil ajouté ! URL : /${isFr ? '' : 'ar/'}conseils/${slug}`)
+      setConseilForm({ lang:'fr', question_fr:'', answer_fr:'', question_ar:'', answer_ar:'', specialty_id:'', wilaya_id:'' })
+    } catch (err) {
+      setConseilError('Erreur : ' + err.message)
+    }
+    setConseilLoading(false)
+  }
 
     try {
       const questionText = isFr ? conseilForm.question_fr : conseilForm.question_ar
