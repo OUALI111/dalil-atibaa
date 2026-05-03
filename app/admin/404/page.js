@@ -83,8 +83,7 @@ export default function AdminDashboard() {
   const [formLoading, setFormLoading] = useState(false)
   const [formSuccess, setFormSuccess] = useState('')
   const [formError, setFormError] = useState('')
-
-  const [conseilForm, setConseilForm] = useState({ lang:'fr', question_fr:'', answer_fr:'', question_ar:'', answer_ar:'', specialty_id:'', wilaya_id:'' })
+const [conseilForm, setConseilForm] = useState({ lang:'fr', question_fr:'', answer_fr:'', content_fr:'', question_ar:'', answer_ar:'', content_ar:'', specialty_id:'', wilaya_id:'', meta_title:'', meta_description:'', read_time:3 })
   const [conseilLoading, setConseilLoading] = useState(false)
   const [conseilSuccess, setConseilSuccess] = useState('')
   const [conseilError, setConseilError] = useState('')
@@ -232,16 +231,21 @@ export default function AdminDashboard() {
       const slug = generateConseilSlug(questionText, conseilForm.lang)
 
       const insertData = {
-        slug,
-        lang: conseilForm.lang,
-        question_fr: conseilForm.question_fr || null,
-        answer_fr: conseilForm.answer_fr || null,
-        question_ar: conseilForm.question_ar || null,
-        answer_ar: conseilForm.answer_ar || null,
-        specialty_id: parseInt(conseilForm.specialty_id),
-        wilaya_id: conseilForm.wilaya_id ? parseInt(conseilForm.wilaya_id) : null,
-        is_active: true,
-      }
+  slug,
+  lang: conseilForm.lang,
+  question_fr: isFr ? conseilForm.question_fr : `ar-${slug}`,
+  answer_fr: isFr ? conseilForm.answer_fr : '',
+  content_fr: isFr ? (conseilForm.content_fr || null) : null,
+  question_ar: conseilForm.question_ar || null,
+  answer_ar: conseilForm.answer_ar || null,
+  content_ar: !isFr ? (conseilForm.content_ar || null) : null,
+  meta_title: conseilForm.meta_title || null,
+  meta_description: conseilForm.meta_description || null,
+  read_time: parseInt(conseilForm.read_time) || 3,
+  specialty_id: parseInt(conseilForm.specialty_id),
+  wilaya_id: conseilForm.wilaya_id ? parseInt(conseilForm.wilaya_id) : null,
+  is_active: true,
+}
 
       const { error: insertError } = await supabase.from('conseils').insert(insertData)
       if (insertError) throw insertError
@@ -349,106 +353,167 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* TAB: ADD CONSEIL */}
             {activeTab === 'conseil' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-2xl">
-                <h2 className="font-bold text-gray-800 mb-6 text-lg">✍️ Ajouter un conseil médical</h2>
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-3xl">
+    <h2 className="font-bold text-gray-800 mb-6 text-lg">✍️ Ajouter un conseil médical</h2>
 
-                {conseilSuccess && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
-                    {conseilSuccess}
-                  </div>
-                )}
-                {conseilError && (
-                  <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-4">
-                    {conseilError}
-                  </div>
-                )}
+    {conseilSuccess && (
+      <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+        {conseilSuccess}
+      </div>
+    )}
+    {conseilError && (
+      <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-sm mb-4">
+        {conseilError}
+      </div>
+    )}
 
-                <form onSubmit={handleAddConseil} className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-2">Langue *</label>
-                    <div className="flex gap-3">
-                      <button type="button" onClick={() => setConseilForm({...conseilForm, lang:'fr'})}
-                        className={`flex-1 py-2 rounded-xl text-sm font-medium border transition ${conseilForm.lang === 'fr' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
-                        🇫🇷 Français
-                      </button>
-                      <button type="button" onClick={() => setConseilForm({...conseilForm, lang:'ar'})}
-                        className={`flex-1 py-2 rounded-xl text-sm font-medium border transition ${conseilForm.lang === 'ar' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
-                        🇩🇿 عربي
-                      </button>
-                    </div>
-                  </div>
+    <form onSubmit={handleAddConseil} className="space-y-4">
+      <div>
+        <label className="text-sm font-medium text-gray-700 block mb-2">Langue *</label>
+        <div className="flex gap-3">
+          <button type="button" onClick={() => setConseilForm({...conseilForm, lang:'fr'})}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium border transition ${conseilForm.lang === 'fr' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+            🇫🇷 Français
+          </button>
+          <button type="button" onClick={() => setConseilForm({...conseilForm, lang:'ar'})}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium border transition ${conseilForm.lang === 'ar' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+            🇩🇿 عربي
+          </button>
+        </div>
+      </div>
 
-                  {conseilForm.lang === 'fr' && (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">Question (FR) *</label>
-                        <input type="text" value={conseilForm.question_fr}
-                          onChange={e => setConseilForm({...conseilForm, question_fr: e.target.value})}
-                          placeholder="Quand consulter un dentiste pour..."
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">Réponse (FR) *</label>
-                        <textarea rows={4} value={conseilForm.answer_fr}
-                          onChange={e => setConseilForm({...conseilForm, answer_fr: e.target.value})}
-                          placeholder="Réponse claire en 3-4 lignes..."
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none" />
-                      </div>
-                    </>
-                  )}
-
-                  {conseilForm.lang === 'ar' && (
-                    <>
-                      <div dir="rtl">
-                        <label className="text-sm font-medium text-gray-700 block mb-1">السؤال *</label>
-                        <input type="text" value={conseilForm.question_ar}
-                          onChange={e => setConseilForm({...conseilForm, question_ar: e.target.value})}
-                          placeholder="متى يجب أن أزور طبيب الأسنان..."
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 text-right" />
-                      </div>
-                      <div dir="rtl">
-                        <label className="text-sm font-medium text-gray-700 block mb-1">الجواب *</label>
-                        <textarea rows={4} value={conseilForm.answer_ar}
-                          onChange={e => setConseilForm({...conseilForm, answer_ar: e.target.value})}
-                          placeholder="جواب واضح من 3 إلى 4 أسطر..."
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none text-right" />
-                      </div>
-                    </>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 block mb-1">Spécialité *</label>
-                      <select value={conseilForm.specialty_id}
-                        onChange={e => setConseilForm({...conseilForm, specialty_id: e.target.value})}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
-                        <option value="">Choisir...</option>
-                        {specialties.map(s => <option key={s.id} value={s.id}>{s.name_fr}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 block mb-1">Wilaya (optionnel)</label>
-                      <select value={conseilForm.wilaya_id}
-                        onChange={e => setConseilForm({...conseilForm, wilaya_id: e.target.value})}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
-                        <option value="">Toutes wilayas</option>
-                        {wilayas.map(w => <option key={w.id} value={w.id}>{w.name_fr}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button type="submit" disabled={conseilLoading}
-                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-3 rounded-xl text-sm transition">
-                      {conseilLoading ? 'Enregistrement...' : '✍️ Publier le conseil'}
-                    </button>
-                  </div>
-                </form>
+      {conseilForm.lang === 'fr' && (
+        <>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Question (FR) *</label>
+            <input type="text" value={conseilForm.question_fr}
+              onChange={e => setConseilForm({...conseilForm, question_fr: e.target.value})}
+              placeholder="Quand consulter un dentiste pour..."
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">
+              Réponse courte (FR) * 
+              <span className="text-gray-400 ml-2">({conseilForm.answer_fr?.split(' ').filter(w=>w).length || 0} mots)</span>
+            </label>
+            <textarea rows={3} value={conseilForm.answer_fr}
+              onChange={e => setConseilForm({...conseilForm, answer_fr: e.target.value})}
+              placeholder="Réponse claire en 2-3 phrases..."
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none" />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">
+              Contenu détaillé (FR)
+              <span className={`ml-2 text-xs font-bold ${(conseilForm.content_fr?.split(' ').filter(w=>w).length || 0) >= 350 ? 'text-green-600' : 'text-orange-500'}`}>
+                {conseilForm.content_fr?.split(' ').filter(w=>w).length || 0} / 500 mots recommandés
+              </span>
+            </label>
+            <div className="relative">
+              <textarea rows={12} value={conseilForm.content_fr || ''}
+                onChange={e => setConseilForm({...conseilForm, content_fr: e.target.value})}
+                placeholder={`## Titre section 1\n\nPremier paragraphe détaillé...\n\n## Titre section 2\n\n- Point 1\n- Point 2\n- Point 3\n\nDeuxième paragraphe...`}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-y font-mono" />
+              <div className="absolute bottom-3 right-3">
+                <div className={`text-xs px-2 py-1 rounded-lg ${(conseilForm.content_fr?.split(' ').filter(w=>w).length || 0) >= 350 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-600'}`}>
+                  {(conseilForm.content_fr?.split(' ').filter(w=>w).length || 0) >= 350 ? '✅ Bon' : '⚠️ Trop court'}
+                </div>
               </div>
-            )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Utilisez ## pour les titres et - pour les listes</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Meta Title (FR)</label>
+            <input type="text" value={conseilForm.meta_title || ''}
+              onChange={e => setConseilForm({...conseilForm, meta_title: e.target.value})}
+              placeholder="Titre SEO — max 60 caractères"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+            <p className="text-xs text-gray-400 mt-1">{conseilForm.meta_title?.length || 0}/60 caractères</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Meta Description (FR)</label>
+            <textarea rows={2} value={conseilForm.meta_description || ''}
+              onChange={e => setConseilForm({...conseilForm, meta_description: e.target.value})}
+              placeholder="Description SEO — max 160 caractères"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none" />
+            <p className="text-xs text-gray-400 mt-1">{conseilForm.meta_description?.length || 0}/160 caractères</p>
+          </div>
+        </>
+      )}
 
+      {conseilForm.lang === 'ar' && (
+        <>
+          <div dir="rtl">
+            <label className="text-sm font-medium text-gray-700 block mb-1">السؤال *</label>
+            <input type="text" value={conseilForm.question_ar}
+              onChange={e => setConseilForm({...conseilForm, question_ar: e.target.value})}
+              placeholder="متى يجب أن أزور طبيب الأسنان..."
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 text-right" />
+          </div>
+          <div dir="rtl">
+            <label className="text-sm font-medium text-gray-700 block mb-1">
+              الجواب المختصر *
+              <span className="text-gray-400 mr-2">({conseilForm.answer_ar?.split(' ').filter(w=>w).length || 0} كلمة)</span>
+            </label>
+            <textarea rows={3} value={conseilForm.answer_ar}
+              onChange={e => setConseilForm({...conseilForm, answer_ar: e.target.value})}
+              placeholder="جواب واضح من 2 إلى 3 جمل..."
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none text-right" />
+          </div>
+          <div dir="rtl">
+            <label className="text-sm font-medium text-gray-700 block mb-1">
+              المحتوى التفصيلي
+              <span className={`mr-2 text-xs font-bold ${(conseilForm.content_ar?.split(' ').filter(w=>w).length || 0) >= 350 ? 'text-green-600' : 'text-orange-500'}`}>
+                {conseilForm.content_ar?.split(' ').filter(w=>w).length || 0} / 500 كلمة موصى بها
+              </span>
+            </label>
+            <textarea rows={12} value={conseilForm.content_ar || ''}
+              onChange={e => setConseilForm({...conseilForm, content_ar: e.target.value})}
+              placeholder={`عنوان القسم الأول\n\nالفقرة الأولى...\n\nعنوان القسم الثاني\n\n- النقطة الأولى\n- النقطة الثانية\n\nالفقرة الثانية...`}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-y text-right" />
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Spécialité *</label>
+          <select value={conseilForm.specialty_id}
+            onChange={e => setConseilForm({...conseilForm, specialty_id: e.target.value})}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
+            <option value="">Choisir...</option>
+            {specialties.map(s => <option key={s.id} value={s.id}>{s.name_fr}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Wilaya (optionnel)</label>
+          <select value={conseilForm.wilaya_id}
+            onChange={e => setConseilForm({...conseilForm, wilaya_id: e.target.value})}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 bg-white">
+            <option value="">Toutes wilayas</option>
+            {wilayas.map(w => <option key={w.id} value={w.id}>{w.name_fr}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Temps de lecture (min)</label>
+          <input type="number" min="1" max="15" value={conseilForm.read_time || 3}
+            onChange={e => setConseilForm({...conseilForm, read_time: e.target.value})}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+        </div>
+      </div>
+
+      <div className="pt-2">
+        <button type="submit" disabled={conseilLoading}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-3 rounded-xl text-sm transition">
+          {conseilLoading ? 'Enregistrement...' : '✍️ Publier le conseil'}
+        </button>
+      </div>
+    </form>
+  </div>
+)}
             {/* TAB: ADD DOCTOR */}
             {activeTab === 'add' && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-2xl">
