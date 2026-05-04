@@ -1,10 +1,18 @@
 export default function robots() {
   return {
-    rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: ['/api/', '/admin/'],
-    },
-    sitemap: 'https://dalil-atibaa.dz/sitemap.xml',
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: ['/api/', '/admin/'],
+      },
+      {
+        userAgent: '*',
+        disallow: '/',
+        host: 'dalil-atibaa.vercel.app',
+      },
+    ],
+    sitemap: 'https://www.dalil-atibaa.com/sitemap.xml',
+    host: 'https://www.dalil-atibaa.com',
   }
 }
