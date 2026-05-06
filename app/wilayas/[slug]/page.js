@@ -42,6 +42,11 @@ export default async function WilayaPage({ params, searchParams }) {
     .in('id', specIds)
     .order('name_fr')
 
+    const { data: meilleursPages } = await supabase
+  .from('meilleurs_pages')
+  .select('specialty_slug')
+  .eq('wilaya_slug', slug)
+  .eq('is_active', true)
   // Médecins paginés
   const from = page * pageSize
   const to = from + pageSize - 1
@@ -188,7 +193,30 @@ export default async function WilayaPage({ params, searchParams }) {
             )}
           </div>
         )}
-
+{/* MEILLEURS PAGES */}
+{meilleursPages && meilleursPages.length > 0 && (
+  <div className="bg-white rounded-2xl p-6 shadow-sm mt-6">
+    <h2 className="text-lg font-bold text-gray-800 mb-4">
+      Meilleurs médecins à {wilaya.name_fr} par spécialité
+    </h2>
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {meilleursPages.map(mp => {
+        const specObj = specialties?.find(s => s.slug === mp.specialty_slug)
+        return (
+          <Link key={mp.specialty_slug} href={`/meilleurs/${mp.specialty_slug}-${slug}`}
+            className="flex items-center gap-2 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition group">
+            <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+            </svg>
+            <span className="text-sm text-gray-700 group-hover:text-blue-600 font-medium">
+              {specObj?.name_fr || mp.specialty_slug}
+            </span>
+          </Link>
+        )
+      })}
+    </div>
+  </div>
+)}
         {/* SEO CONTENT */}
         <div className="bg-white rounded-2xl p-6 shadow-sm mt-10">
           <h2 className="text-xl font-bold text-gray-800 mb-3">Trouver un médecin à {wilaya.name_fr}</h2>

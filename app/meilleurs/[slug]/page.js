@@ -29,7 +29,7 @@ export async function generateMetadata({ params }) {
   return {
     title: page.meta_title,
     description: page.meta_description,
-    alternates: { canonical: `https://www.annudz.dz/meilleurs/${slug}` },
+    alternates: { canonical: `https://www.dalil-atibaa.com/meilleurs/${slug}` },
     openGraph: { title: page.meta_title, description: page.meta_description }
   }
 }
@@ -73,6 +73,13 @@ export default async function MeilleursPage({ params }) {
     .order('rating', { ascending: false })
     .limit(20) : { data: [] }
 
+  const { data: autresWilayas } = await supabase
+    .from('meilleurs_pages')
+    .select('wilaya_slug, wilaya_name')
+    .eq('specialty_slug', specialtySlug)
+    .eq('is_active', true)
+    .neq('wilaya_slug', wilayaSlug)
+
   const faq = page.faq || []
 
   const jsonLd = {
@@ -90,7 +97,7 @@ export default async function MeilleursPage({ params }) {
         '@type': 'MedicalWebPage',
         name: page.meta_title,
         description: page.meta_description,
-        url: `https://www.annudz.dz/meilleurs/${slug}`,
+        url: `https://www.dalil-atibaa.com/meilleurs/${slug}`,
         about: { '@type': 'MedicalSpecialty', name: page.specialty_name }
       }
     ]
@@ -133,42 +140,49 @@ export default async function MeilleursPage({ params }) {
           {/* HERO */}
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-8 text-white">
             <div className="flex items-center gap-2 mb-3">
-              <span className="bg-white/20 text-white text-xs px-3 py-1 rounded-full font-medium">{doctors?.length || 0} praticiens référencés</span>
-              <span className="bg-white/20 text-white text-xs px-3 py-1 rounded-full">{page.wilaya_name}</span>
+              <span className="bg-white/20 text-white text-xs px-3 py-1 rounded-full font-medium">
+                {doctors?.length || 0} praticiens référencés
+              </span>
+              <span className="bg-white/20 text-white text-xs px-3 py-1 rounded-full">
+                {page.wilaya_name}
+              </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold leading-snug mb-2">Meilleurs {page.specialty_name} à {page.wilaya_name}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold leading-snug mb-2">
+              Meilleurs {page.specialty_name} à {page.wilaya_name}
+            </h1>
             <p className="text-blue-100 text-sm">Liste complète mise à jour en {new Date().getFullYear()}</p>
           </div>
 
-       {/* INTRO */}
-<div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-  <div className="space-y-5">
-    {page.intro_fr
-      .split(/\n\n+/)
-      .filter(p => p.trim())
-      .map((p, i) => (
-        <p key={i} className="text-gray-600 leading-relaxed text-base">
-          {p.trim()}
-        </p>
-      ))}
-  </div>
+          {/* INTRO */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            <div className="space-y-5">
+              {page.intro_fr
+                .split(/\n\n+/)
+                .filter(p => p.trim())
+                .map((p, i) => (
+                  <p key={i} className="text-gray-600 leading-relaxed text-base">
+                    {p.trim()}
+                  </p>
+                ))}
+            </div>
+            {page.communes && (
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <h2 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  </svg>
+                  Zones couvertes
+                </h2>
+                <p className="text-gray-500 text-sm leading-relaxed">{page.communes}</p>
+              </div>
+            )}
+          </div>
 
-  {page.communes && (
-    <div className="mt-6 pt-6 border-t border-gray-100">
-      <h2 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-        </svg>
-        Zones couvertes
-      </h2>
-      <p className="text-gray-500 text-sm leading-relaxed">{page.communes}</p>
-    </div>
-  )}
-</div>
-          
           {/* LISTE MÉDECINS */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="font-bold text-gray-900 text-xl mb-6">{page.specialty_name} à {page.wilaya_name} — Liste complète</h2>
+            <h2 className="font-bold text-gray-900 text-xl mb-6">
+              {page.specialty_name} à {page.wilaya_name} — Liste complète
+            </h2>
             {doctors && doctors.length > 0 ? (
               <div className="space-y-3">
                 {doctors.map((d, i) => (
@@ -198,7 +212,9 @@ export default async function MeilleursPage({ params }) {
             ) : (
               <div className="text-center py-12 text-gray-400">
                 <p>Aucun praticien référencé pour le moment</p>
-                <Link href="/contact" className="text-blue-600 text-sm mt-2 block hover:underline">Référencer mon cabinet →</Link>
+                <Link href="/contact" className="text-blue-600 text-sm mt-2 block hover:underline">
+                  Référencer mon cabinet →
+                </Link>
               </div>
             )}
           </div>
@@ -206,7 +222,9 @@ export default async function MeilleursPage({ params }) {
           {/* FAQ */}
           {faq.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 className="font-bold text-gray-900 text-xl mb-6">Questions fréquentes — {page.specialty_name} à {page.wilaya_name}</h2>
+              <h2 className="font-bold text-gray-900 text-xl mb-6">
+                Questions fréquentes — {page.specialty_name} à {page.wilaya_name}
+              </h2>
               <div className="space-y-4">
                 {faq.map((item, i) => (
                   <div key={i} className="border border-gray-100 rounded-xl p-5">
@@ -222,35 +240,52 @@ export default async function MeilleursPage({ params }) {
         {/* SIDEBAR */}
         <div className="space-y-4">
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white sticky top-20">
-            <h3 className="font-bold text-lg mb-2">Trouver un {page.specialty_name.slice(0, -1)} à {page.wilaya_name}</h3>
-            <p className="text-blue-100 text-sm mb-5">{doctors?.length || 0} praticiens disponibles dans notre annuaire</p>
-            <Link href={`/recherche?specialite=${specialty?.slug}&wilaya=${wilaya?.slug}`} className="block text-center bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
+            <h3 className="font-bold text-lg mb-2">
+              Trouver un {page.specialty_name.slice(0, -1)} à {page.wilaya_name}
+            </h3>
+            <p className="text-blue-100 text-sm mb-5">
+              {doctors?.length || 0} praticiens disponibles dans notre annuaire
+            </p>
+            <Link href={`/recherche?specialite=${specialty?.slug}&wilaya=${wilaya?.slug}`}
+              className="block text-center bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
               Voir tous les résultats →
             </Link>
-            <Link href="/recherche" className="block text-center text-white/80 hover:text-white text-sm mt-3 transition">Recherche avancée →</Link>
+            <Link href="/recherche"
+              className="block text-center text-white/80 hover:text-white text-sm mt-3 transition">
+              Recherche avancée →
+            </Link>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Autres wilayas</p>
-            <div className="space-y-2">
-              {['alger', 'oran', 'constantine', 'annaba', 'blida'].filter(w => w !== wilayaSlug).map(w => (
-                <Link key={w} href={`/meilleurs/${specialtySlug}-${w}`} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition group">
-                  <span className="text-sm text-gray-700 group-hover:text-blue-600">{page.specialty_name} à {w.charAt(0).toUpperCase() + w.slice(1)}</span>
-                  <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              ))}
+          {autresWilayas && autresWilayas.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Autres wilayas</p>
+              <div className="space-y-2">
+                {autresWilayas.map(w => (
+                  <Link key={w.wilaya_slug} href={`/meilleurs/${specialtySlug}-${w.wilaya_slug}`}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition group">
+                    <span className="text-sm text-gray-700 group-hover:text-blue-600">
+                      {page.specialty_name} à {w.wilaya_name}
+                    </span>
+                    <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
             <div className="flex items-start gap-3">
               <span className="text-xl">📋</span>
               <div>
                 <p className="font-semibold text-amber-800 text-sm mb-1">Référencer votre cabinet</p>
-                <p className="text-amber-700 text-xs leading-relaxed mb-2">Vous êtes {page.specialty_name.slice(0, -1).toLowerCase()} à {page.wilaya_name} ? Rejoignez notre annuaire gratuitement.</p>
-                <Link href="/contact" className="text-amber-700 text-xs font-bold hover:underline">Nous contacter →</Link>
+                <p className="text-amber-700 text-xs leading-relaxed mb-2">
+                  Vous êtes {page.specialty_name.slice(0, -1).toLowerCase()} à {page.wilaya_name} ? Rejoignez notre annuaire gratuitement.
+                </p>
+                <Link href="/contact" className="text-amber-700 text-xs font-bold hover:underline">
+                  Nous contacter →
+                </Link>
               </div>
             </div>
           </div>
