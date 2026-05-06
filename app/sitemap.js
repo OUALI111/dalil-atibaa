@@ -40,7 +40,7 @@ export default async function sitemap() {
    {
   url: `${baseUrl}/sitemap-meilleurs.xml`,
   lastModified: new Date(),
-}
+},
     ...doctorSitemaps,
   ]
 }
