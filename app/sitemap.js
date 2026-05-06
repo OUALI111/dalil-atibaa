@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic'
-
 import { supabase } from '../lib/supabase'
+
+export const dynamic = 'force-dynamic'
 
 export default async function sitemap() {
   const baseUrl = 'https://www.dalil-atibaa.com'
@@ -20,27 +20,11 @@ export default async function sitemap() {
   }))
 
   return [
-    {
-      url: `${baseUrl}/sitemap-pages.xml`,
-      lastModified: new Date(),
-    },
-    {
-      url: `${baseUrl}/sitemap-wilayas.xml`,
-      lastModified: new Date(),
-    },
-    {
-      url: `${baseUrl}/sitemap-specialites.xml`,
-      lastModified: new Date(),
-    },
-
-    {
-  url: `${baseUrl}/sitemap-conseils.xml`,
-  lastModified: new Date(),
-   },
-   {
-  url: `${baseUrl}/sitemap-meilleurs.xml`,
-  lastModified: new Date(),
-},
+    { url: `${baseUrl}/sitemap-pages.xml`, lastModified: new Date() },
+    { url: `${baseUrl}/sitemap-wilayas.xml`, lastModified: new Date() },
+    { url: `${baseUrl}/sitemap-specialites.xml`, lastModified: new Date() },
+    { url: `${baseUrl}/sitemap-conseils.xml`, lastModified: new Date() },
+    { url: `${baseUrl}/sitemap-meilleurs.xml`, lastModified: new Date() },
     ...doctorSitemaps,
   ]
 }
