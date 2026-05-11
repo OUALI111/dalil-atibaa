@@ -48,8 +48,24 @@ export default async function DoctorPage({ params }) {
     .eq('slug', slug)
     .single()
 
-  if (!doctor) notFound()
+if (!doctor) {
+  const { data: redirect } = await supabase
+    .from('slug_redirects')
+    .select('new_slug, specialty_slug, wilaya_slug')
+    .eq('old_slug', slug)
+    .single()
 
+  if (redirect) {
+    const destination = redirect.new_slug
+      ? `/docteur/${redirect.new_slug}`
+      : `/specialites/${redirect.specialty_slug}/${redirect.wilaya_slug}`
+    
+    const { redirect: nextRedirect } = await import('next/navigation')
+    nextRedirect(destination, 'replace')
+  }
+
+  notFound()
+}
   const { data: services } = await supabase
     .from('services')
     .select('name_fr, slug')
