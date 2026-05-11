@@ -4,14 +4,12 @@ import { NextResponse } from 'next/server'
 export async function middleware(request) {
   const pathname = request.nextUrl.pathname
 
-  // فقط لصفحات الأطباء
   if (!pathname.startsWith('/docteur/')) {
     return NextResponse.next()
   }
 
   const oldSlug = pathname.replace('/docteur/', '')
 
-  // تحقق من slug_redirects
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -25,7 +23,6 @@ export async function middleware(request) {
 
   if (!redirect) return NextResponse.next()
 
-  // إذا عندنا slug جديد → redirect للطبيب الجديد
   if (redirect.new_slug) {
     return NextResponse.redirect(
       new URL(`/docteur/${redirect.new_slug}`, request.url),
@@ -33,15 +30,13 @@ export async function middleware(request) {
     )
   }
 
-  // إذا حُذف الطبيب → redirect للتخصص + ولاية
   if (redirect.specialty_slug && redirect.wilaya_slug) {
     return NextResponse.redirect(
-      new URL(`/specialites/${redirect.specialty_slug}?wilaya=${redirect.wilaya_slug}`, request.url),
+      new URL(`/specialites/${redirect.specialty_slug}/${redirect.wilaya_slug}`, request.url),
       { status: 301 }
     )
   }
 
-  // إذا عندنا تخصص فقط
   if (redirect.specialty_slug) {
     return NextResponse.redirect(
       new URL(`/specialites/${redirect.specialty_slug}`, request.url),
