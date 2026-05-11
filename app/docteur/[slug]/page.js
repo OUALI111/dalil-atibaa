@@ -59,9 +59,9 @@ if (!doctor) {
     const destination = redirect.new_slug
       ? `/docteur/${redirect.new_slug}`
       : `/specialites/${redirect.specialty_slug}/${redirect.wilaya_slug}`
-    
+
     const { redirect: nextRedirect } = await import('next/navigation')
-    nextRedirect(destination, 'replace')
+    nextRedirect(destination)
   }
 
   notFound()
