@@ -342,15 +342,77 @@ if (!doctor) {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-3">
-              {doctor.name_fr} - {doctor.specialties?.name_fr} a {doctor.wilayas?.name_fr}
-            </h2>
-            <p className="text-gray-600 text-sm leading-relaxed mb-4">
-              {doctor.name_fr} est un {doctor.specialties?.name_fr} base a {doctor.wilayas?.name_fr}, Algerie.
-              {doctor.address && ` Le cabinet est situe au ${doctor.address}.`}
-              {services && services.length > 0 && ` Les services proposes incluent: ${services.map(s => s.name_fr).join(', ')}.`}
-            </p>
+<div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+  <h2 className="text-lg font-bold text-gray-900 mb-3">
+    {doctor.name_fr} — {doctor.specialties?.name_fr} à {doctor.wilayas?.name_fr}
+  </h2>
+  <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+    <p>
+      {doctor.name_fr} est un{doctor.specialties?.name_fr?.toLowerCase().includes('e') ? 'e' : ''} {doctor.specialties?.name_fr?.toLowerCase()} 
+      {doctor.address ? ` situé au ${doctor.address},` : ''} à {doctor.wilayas?.name_fr}, Algérie.
+      {services && services.length > 0 && ` Ce praticien propose les services suivants : ${services.map(s => s.name_fr).join(', ')}.`}
+    </p>
+    <p>
+      Pour prendre rendez-vous avec {doctor.name_fr} à {doctor.wilayas?.name_fr}, 
+      appelez directement au <a href={`tel:${doctor.phone}`} className="text-blue-600 font-semibold hover:underline">{doctor.phone}</a>.
+      {doctor.rating > 0 && ` Ce médecin est noté ${doctor.rating}/5 par ses patients sur Dalil Atibaa.`}
+    </p>
+    {services && services.length > 0 && (
+      <p>
+        Les patients consultent {doctor.name_fr} pour : {services.map(s => s.name_fr).join(', ')}.
+        Trouvez d'autres {doctor.specialties?.name_fr?.toLowerCase()} à {doctor.wilayas?.name_fr} sur notre annuaire médical.
+      </p>
+    )}
+  </div>
+
+  <div className="mt-4 space-y-3">
+    <div className="bg-gray-50 rounded-xl p-4">
+      <p className="font-semibold text-gray-700 text-sm mb-1">
+        Comment prendre rendez-vous avec {doctor.name_fr} ?
+      </p>
+      <p className="text-gray-500 text-sm">
+        Appelez directement au <a href={`tel:${doctor.phone}`} className="text-blue-600 font-medium hover:underline">{doctor.phone}</a> pour 
+        prendre rendez-vous avec {doctor.name_fr} à {doctor.wilayas?.name_fr}.
+        {doctor.address && ` Le cabinet est situé au ${doctor.address}.`}
+      </p>
+    </div>
+
+    {services && services.length > 0 && (
+      <div className="bg-gray-50 rounded-xl p-4">
+        <p className="font-semibold text-gray-700 text-sm mb-1">
+          Quels services propose {doctor.name_fr} ?
+        </p>
+        <p className="text-gray-500 text-sm">
+          {doctor.name_fr} propose les services suivants à {doctor.wilayas?.name_fr} : {services.map(s => s.name_fr).join(', ')}.
+        </p>
+      </div>
+    )}
+
+    <div className="bg-gray-50 rounded-xl p-4">
+      <p className="font-semibold text-gray-700 text-sm mb-1">
+        Où se trouve {doctor.name_fr} ?
+      </p>
+      <p className="text-gray-500 text-sm">
+        {doctor.name_fr} exerce à {doctor.wilayas?.name_fr}
+        {doctor.address ? `, au ${doctor.address}` : ''}.
+        {doctor.google_map_url && (
+          <> <a href={doctor.google_map_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Voir sur Google Maps →</a></>
+        )}
+      </p>
+    </div>
+
+    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+      <p className="font-semibold text-blue-800 text-sm mb-1">
+        Autres {doctor.specialties?.name_fr} à {doctor.wilayas?.name_fr}
+      </p>
+      <p className="text-blue-600 text-sm">
+        <Link href={`/specialites/${doctor.specialties?.slug}/${doctor.wilayas?.slug}`} className="hover:underline">
+          Voir tous les {doctor.specialties?.name_fr} à {doctor.wilayas?.name_fr} →
+        </Link>
+      </p>
+    </div>
+  </div>
+            
             <div className="space-y-3">
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="font-medium text-gray-700 text-sm mb-1">Comment prendre rendez-vous avec {doctor.name_fr} ?</p>
