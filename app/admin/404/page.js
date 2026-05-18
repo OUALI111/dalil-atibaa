@@ -25,7 +25,8 @@ function generateSlug(name, wilayaName, id) {
   const frMap = { é:'e',è:'e',ê:'e',à:'a',â:'a',î:'i',ô:'o',ù:'u',û:'u',ç:'c',ë:'e',ï:'i' }
   text = text.replace(/[éèêàâîôùûçëï]/g, c => frMap[c] || c)
   text = text.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-  return text + '-' + id
+const cleanText = text.substring(0, 50).replace(/-+$/, '')
+return cleanText + '-' + id
 }
 
 function generateConseilSlug(text, lang) {
