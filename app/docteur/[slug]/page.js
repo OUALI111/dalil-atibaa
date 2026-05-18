@@ -413,22 +413,6 @@ if (!doctor) {
     </div>
   </div>
             
-            <div className="space-y-3">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="font-medium text-gray-700 text-sm mb-1">Comment prendre rendez-vous avec {doctor.name_fr} ?</p>
-                <p className="text-gray-500 text-sm">Appelez directement au {doctor.phone || 'numero disponible'} pour prendre rendez-vous a {doctor.wilayas?.name_fr}.</p>
-              </div>
-              {services && services.length > 0 && (
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="font-medium text-gray-700 text-sm mb-1">Quels services propose {doctor.name_fr} ?</p>
-                  <p className="text-gray-500 text-sm">{services.map(s => s.name_fr).join(', ')}.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-
         <div className="space-y-4">
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-4">
