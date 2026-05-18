@@ -412,7 +412,8 @@ if (!doctor) {
       </p>
     </div>
   </div>
-            
+    </div>
+         
         <div className="space-y-4">
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-4">
