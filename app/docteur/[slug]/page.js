@@ -22,8 +22,8 @@ export async function generateMetadata({ params }) {
   const servicesText = services?.map(s => s.name_fr).join(', ')
 
   return {
-    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr} | Dalil Atibaa`,
-    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez rendez-vous en ligne.`,
+    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr} | Prenez RDV facilement sur Dalil Atibaa`,
+    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez facilement rendez-vous en ligne.`,
     keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
     alternates: { canonical: `https://www.dalil-atibaa.com/docteur/${slug}` },
     openGraph: {
