@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+export const revalidate = 3600
 
 export async function generateMetadata({ params }) {
   const { slug } = await params

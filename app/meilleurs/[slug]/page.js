@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+export const revalidate = 3600
 
 function parseSlug(slug) {
   const wilayas = ['alger', 'oran', 'constantine', 'annaba', 'blida', 'batna', 'setif', 'tizi-ouzou', 'bejaia', 'jijel', 'skikda', 'el-oued', 'biskra', 'mostaganem']
