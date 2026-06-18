@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase'
 import Link from 'next/link'
 
+export const revalidate = 3600 // Revalider toutes les heures
+
+
 export const metadata = {
   title: 'Dalil Atibaa | Trouvez un Médecin en Algérie & Prenez un Rendez-vous',
   description: 'Trouvez un médecin en Algérie parmi des professionnels de santé référencés. Dentistes, cardiologues, gynécologues dans les 58 wilayas. Adresses et téléphones disponibles.',
@@ -24,36 +27,35 @@ export const metadata = {
 }
 
 async function getStats() {
+  // ✅ totalDoctors : head:true = COUNT PostgreSQL direct, jamais limité
   const { count: totalDoctors } = await supabase
     .from('doctors')
     .select('*', { count: 'exact', head: true })
     .eq('is_active', true)
 
-  const { data: specialtiesWithDoctors } = await supabase
-    .from('doctors')
-    .select('specialty_id')
-    .eq('is_active', true)
-
-  const activeSpecialtyIds = [...new Set(specialtiesWithDoctors?.map(d => d.specialty_id) || [])]
-
-  const { data: specialties } = await supabase
+  // ✅ SPECIALTIES : table de 32 lignes max → jamais limitée
+  // doctors(count) = COUNT imbriqué côté PostgreSQL, prouvé fonctionnel via REST API
+  const { data: specialtiesRaw } = await supabase
     .from('specialties')
-    .select('id, name_fr, slug')
-    .in('id', activeSpecialtyIds)
+    .select('id, name_fr, slug, doctors(count)')
     .order('name_fr')
 
-  const { data: wilayasWithDoctors } = await supabase
-    .from('doctors')
-    .select('wilaya_id')
-    .eq('is_active', true)
+  // Filtre : garder uniquement les spécialités ayant au moins 1 médecin
+  const specialties = specialtiesRaw
+    ?.filter(s => (s.doctors?.[0]?.count ?? 0) > 0)
+    .map(({ id, name_fr, slug }) => ({ id, name_fr, slug })) ?? []
 
-  const activeWilayaIds = [...new Set(wilayasWithDoctors?.map(d => d.wilaya_id) || [])]
-
-  const { data: wilayas } = await supabase
+  // ✅ WILAYAS : table de 58 lignes max → jamais limitée
+  // Même approche : doctors(count) imbriqué, toujours correct
+  const { data: wilayasRaw } = await supabase
     .from('wilayas')
-    .select('id, name_fr, slug')
-    .in('id', activeWilayaIds)
+    .select('id, name_fr, slug, doctors(count)')
     .order('name_fr')
+
+  // Filtre : garder uniquement les wilayas ayant au moins 1 médecin
+  const wilayas = wilayasRaw
+    ?.filter(w => (w.doctors?.[0]?.count ?? 0) > 0)
+    .map(({ id, name_fr, slug }) => ({ id, name_fr, slug })) ?? []
 
   return { totalDoctors, specialties, wilayas }
 }
