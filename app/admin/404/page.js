@@ -58,6 +58,10 @@ export default function AdminDashboard() {
   const [logs404, setLogs404] = useState([])
   const [specialties, setSpecialties] = useState([])
   const [wilayas, setWilayas] = useState([])
+  const [trackingStats, setTrackingStats] = useState(null)
+  const [trackingPeriod, setTrackingPeriod] = useState('30d')
+  const [trackingRows, setTrackingRows] = useState([])
+  const [trackingLoading, setTrackingLoading] = useState(false)
 
   const [form, setForm] = useState({ name_fr:'', specialty_id:'', wilaya_id:'', phone:'', address:'', google_map_url:'', rating:'' })
   const [formLoading, setFormLoading] = useState(false)
@@ -103,8 +107,46 @@ export default function AdminDashboard() {
 
   async function loadAllData() {
     setLoading(true)
-    await Promise.all([fetchStats(), fetchRecentDoctors(), fetchProblemDoctors(), fetchLogs(), fetchSpecialtiesWilayas()])
+    await Promise.all([fetchStats(), fetchRecentDoctors(), fetchProblemDoctors(), fetchLogs(), fetchSpecialtiesWilayas(), fetchTrackingStats('30d')])
     setLoading(false)
+  }
+
+  async function fetchTrackingStats(period) {
+    setTrackingLoading(true)
+    try {
+      const now = new Date()
+      const start = new Date(now)
+      if (period === '7d')  start.setDate(now.getDate() - 7)
+      if (period === '30d') start.setDate(now.getDate() - 30)
+      if (period === '90d') start.setDate(now.getDate() - 90)
+
+      let query = supabase.from('doctor_stats').select('doctor_id, event_type')
+      if (period !== 'all') query = query.gte('created_at', start.toISOString())
+      const { data: rows } = await query
+
+      const totals = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
+      const byDoc = {}
+      for (const r of (rows || [])) {
+        if (r.event_type === 'view')           totals.views++
+        if (r.event_type === 'call_click')     totals.calls++
+        if (r.event_type === 'whatsapp_click') totals.whatsapp++
+        if (r.event_type === 'map_click')      totals.maps++
+        if (!byDoc[r.doctor_id]) byDoc[r.doctor_id] = { views:0, calls:0, whatsapp:0, maps:0 }
+        byDoc[r.doctor_id][r.event_type === 'view' ? 'views' : r.event_type === 'call_click' ? 'calls' : r.event_type === 'whatsapp_click' ? 'whatsapp' : 'maps']++
+      }
+      setTrackingStats(totals)
+
+      // get doctor names for top 10 by views
+      const topIds = Object.entries(byDoc).sort((a,b) => b[1].views - a[1].views).slice(0,10).map(e => Number(e[0]))
+      let docNames = {}
+      if (topIds.length > 0) {
+        const { data: docs } = await supabase.from('doctors').select('id, name_fr, slug, specialties(name_fr), wilayas(name_fr)').in('id', topIds)
+        docs?.forEach(d => { docNames[d.id] = d })
+      }
+      const topRows = topIds.map(id => ({ id, ...byDoc[id], doc: docNames[id] }))
+      setTrackingRows(topRows)
+    } catch(e) { console.error(e) }
+    setTrackingLoading(false)
   }
 
   async function fetchSpecialtiesWilayas() {
@@ -423,6 +465,120 @@ export default function AdminDashboard() {
                     <span className="font-bold text-gray-700">{logs404.length}</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* ==================== TRACKING SECTION ==================== */}
+            {activeTab === 'stats' && (
+              <div className="mt-8 space-y-6">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <h2 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                    <span className="text-blue-600">📈</span> Visites &amp; Interactions
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+                      {[['7d','7j'],['30d','30j'],['90d','3m'],['all','Tout']].map(([v,l]) => (
+                        <button key={v} onClick={() => { setTrackingPeriod(v); fetchTrackingStats(v) }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                            trackingPeriod === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
+                          }`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => fetchTrackingStats(trackingPeriod)}
+                      className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-xl font-medium hover:bg-blue-700 transition">
+                      {trackingLoading ? '...' : '↻ Refresh'}
+                    </button>
+                  </div>
+                </div>
+
+                {trackingStats && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { icon:'👁', label:'Visites pages', value:trackingStats.views, bg:'bg-blue-50', text:'text-blue-600' },
+                      { icon:'📞', label:'Clics Appel', value:trackingStats.calls, sub: trackingStats.views ? Math.round((trackingStats.calls/trackingStats.views)*100)+'%' : '0%', bg:'bg-green-50', text:'text-green-600' },
+                      { icon:'💬', label:'Clics WhatsApp', value:trackingStats.whatsapp, sub: trackingStats.views ? Math.round((trackingStats.whatsapp/trackingStats.views)*100)+'%' : '0%', bg:'bg-emerald-50', text:'text-emerald-600' },
+                      { icon:'🗺', label:'Clics Carte', value:trackingStats.maps, sub: trackingStats.views ? Math.round((trackingStats.maps/trackingStats.views)*100)+'%' : '0%', bg:'bg-orange-50', text:'text-orange-600' },
+                    ].map((s,i) => (
+                      <div key={i} className={`${s.bg} rounded-2xl p-5 border border-white shadow-sm`}>
+                        <p className="text-2xl mb-1">{s.icon}</p>
+                        <p className={`text-2xl font-bold ${s.text}`}>{s.value?.toLocaleString()}</p>
+                        <p className="text-gray-600 text-xs mt-0.5">{s.label}</p>
+                        {s.sub && <p className={`text-xs font-semibold mt-1 ${s.text}`}>Taux: {s.sub}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {trackingRows.length > 0 && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-50">
+                      <h3 className="font-bold text-gray-800">Top 10 médecins les plus visités</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
+                            <th className="text-left px-5 py-3">#</th>
+                            <th className="text-left px-3 py-3">Médecin</th>
+                            <th className="text-left px-3 py-3 hidden md:table-cell">Spécialité</th>
+                            <th className="text-right px-3 py-3">👁 Vues</th>
+                            <th className="text-right px-3 py-3">📞 Appels</th>
+                            <th className="text-right px-3 py-3 hidden sm:table-cell">💬 WA</th>
+                            <th className="text-right px-5 py-3">Taux</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {trackingRows.map((r, i) => {
+                            const rate = r.views ? Math.round((r.calls / r.views) * 100) : 0
+                            return (
+                              <tr key={r.id} className="hover:bg-blue-50/30 transition">
+                                <td className="px-5 py-3 text-sm text-gray-400">{i+1}</td>
+                                <td className="px-3 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                      {r.doc?.name_fr?.charAt(0) || '?'}
+                                    </div>
+                                    <a href={`/docteur/${r.doc?.slug}`} target="_blank" rel="noopener noreferrer"
+                                      className="text-sm font-semibold text-gray-800 hover:text-blue-600 transition truncate max-w-[120px] block">
+                                      {r.doc?.name_fr || `#${r.id}`}
+                                    </a>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3 hidden md:table-cell">
+                                  <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{r.doc?.specialties?.name_fr || '—'}</span>
+                                </td>
+                                <td className="px-3 py-3 text-right font-bold text-sm text-blue-600">{r.views}</td>
+                                <td className="px-3 py-3 text-right font-bold text-sm text-green-600">{r.calls}</td>
+                                <td className="px-3 py-3 text-right text-sm text-gray-600 hidden sm:table-cell">{r.whatsapp}</td>
+                                <td className="px-5 py-3 text-right">
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
+                                    rate >= 20 ? 'bg-green-100 text-green-700' :
+                                    rate >= 10 ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-gray-100 text-gray-500'
+                                  }`}>{rate}%</span>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-right">
+                      <a href="/admin/stats" target="_blank" className="text-xs text-blue-600 hover:underline font-medium">
+                        Voir le dashboard complet →
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {!trackingLoading && !trackingStats && (
+                  <div className="bg-gray-50 rounded-2xl p-8 text-center text-gray-400 border border-gray-100">
+                    <p className="text-3xl mb-2">📭</p>
+                    <p className="text-sm">Aucune donnée — les visites s'enregistreront automatiquement</p>
+                  </div>
+                )}
               </div>
             )}
 
