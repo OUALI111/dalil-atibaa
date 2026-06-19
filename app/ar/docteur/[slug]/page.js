@@ -8,15 +8,17 @@ export async function generateMetadata({ params }) {
   const { slug } = await params
   const { data: doctor } = await supabase
     .from('doctors')
-    .select('name_fr, specialty_id, specialties(name_fr, name_ar), wilayas(name_fr, name_ar)')
+    .select('name_fr, name_ar, specialty_id, specialties(name_fr, name_ar), wilayas(name_fr, name_ar)')
     .eq('slug', slug)
     .single()
 
   if (!doctor) return { title: 'طبيب غير موجود' }
 
+  const displayName = doctor.name_ar || doctor.name_fr
+
   return {
-    title: `${doctor.name_fr} - ${doctor.specialties?.name_ar} في ${doctor.wilayas?.name_ar} | دليل الأطباء`,
-    description: `احجز موعدك مع ${doctor.name_fr}، ${doctor.specialties?.name_ar} في ${doctor.wilayas?.name_ar}. اتصل مباشرة على دليل أطباء الجزائر.`,
+    title: `${displayName} - ${doctor.specialties?.name_ar} في ${doctor.wilayas?.name_ar} | دليل الأطباء`,
+    description: `احجز موعدك مع ${displayName}، ${doctor.specialties?.name_ar} في ${doctor.wilayas?.name_ar}. اتصل مباشرة على دليل أطباء الجزائر.`,
     alternates: {
       canonical: `https://www.dalil-atibaa.com/ar/docteur/${slug}`,
       languages: {
@@ -26,8 +28,8 @@ export async function generateMetadata({ params }) {
       }
     },
     openGraph: {
-      title: `${doctor.name_fr} - ${doctor.specialties?.name_ar} في ${doctor.wilayas?.name_ar}`,
-      description: `احجز موعدك مع ${doctor.name_fr} في ${doctor.wilayas?.name_ar}`,
+      title: `${displayName} - ${doctor.specialties?.name_ar} في ${doctor.wilayas?.name_ar}`,
+      description: `احجز موعدك مع ${displayName} في ${doctor.wilayas?.name_ar}`,
       locale: 'ar_DZ',
     }
   }
@@ -39,7 +41,7 @@ export default async function DoctorArPage({ params }) {
   const { data: doctor } = await supabase
     .from('doctors')
     .select(`
-      id, name_fr, slug, address, phone, rating, reviews_count,
+      id, name_fr, name_ar, slug, address, address_ar, phone, rating, reviews_count,
       google_map_url, latitude, longitude, is_verified,
       specialty_id, wilaya_id,
       specialties(id, name_fr, name_ar, slug),
@@ -50,6 +52,9 @@ export default async function DoctorArPage({ params }) {
 
   if (!doctor) notFound()
 
+  const displayName = doctor.name_ar || doctor.name_fr
+  const displayAddress = doctor.address_ar || doctor.address
+
   const { data: services } = await supabase
     .from('services')
     .select('name_fr')
@@ -57,7 +62,7 @@ export default async function DoctorArPage({ params }) {
 
   const { data: similar } = await supabase
     .from('doctors')
-    .select('id, name_fr, slug, rating, wilayas(name_ar)')
+    .select('id, name_fr, name_ar, slug, rating, wilayas(name_ar)')
     .eq('specialty_id', doctor.specialty_id)
     .eq('wilaya_id', doctor.wilaya_id)
     .neq('id', doctor.id)
@@ -73,13 +78,13 @@ export default async function DoctorArPage({ params }) {
       {
         '@type': ['Physician', 'MedicalBusiness'],
         '@id': `https://www.dalil-atibaa.com/ar/docteur/${doctor.slug}`,
-        name: doctor.name_fr,
+        name: displayName,
         inLanguage: 'ar',
         medicalSpecialty: doctor.specialties?.name_ar,
         telephone: doctor.phone,
         address: {
           '@type': 'PostalAddress',
-          streetAddress: doctor.address,
+          streetAddress: displayAddress,
           addressLocality: doctor.wilayas?.name_ar,
           addressCountry: 'DZ',
         },
@@ -97,7 +102,7 @@ export default async function DoctorArPage({ params }) {
           { '@type': 'ListItem', position: 1, name: 'الرئيسية', item: 'https://www.dalil-atibaa.com/ar' },
           { '@type': 'ListItem', position: 2, name: doctor.specialties?.name_ar, item: `https://www.dalil-atibaa.com/ar/specialites/${doctor.specialties?.slug}` },
           { '@type': 'ListItem', position: 3, name: doctor.wilayas?.name_ar, item: `https://www.dalil-atibaa.com/ar/wilayas/${doctor.wilayas?.slug}` },
-          { '@type': 'ListItem', position: 4, name: doctor.name_fr, item: `https://www.dalil-atibaa.com/ar/docteur/${doctor.slug}` },
+          { '@type': 'ListItem', position: 4, name: displayName, item: `https://www.dalil-atibaa.com/ar/docteur/${doctor.slug}` },
         ]
       },
       {
@@ -106,13 +111,13 @@ export default async function DoctorArPage({ params }) {
         mainEntity: [
           {
             '@type': 'Question',
-            name: `كيف أحجز موعداً مع ${doctor.name_fr} ؟`,
-            acceptedAnswer: { '@type': 'Answer', text: `اتصل مباشرة على الرقم ${doctor.phone} لحجز موعدك مع ${doctor.name_fr} في ${doctor.wilayas?.name_ar}.` }
+            name: `كيف أحجز موعداً مع ${displayName} ؟`,
+            acceptedAnswer: { '@type': 'Answer', text: `اتصل مباشرة على الرقم ${doctor.phone} لحجز موعدك مع ${displayName} في ${doctor.wilayas?.name_ar}.` }
           },
           {
             '@type': 'Question',
-            name: `أين يقع ${doctor.name_fr} ؟`,
-            acceptedAnswer: { '@type': 'Answer', text: `${doctor.name_fr} يمارس في ${doctor.wilayas?.name_ar}${doctor.address ? `، ${doctor.address}` : ''}.` }
+            name: `أين يقع ${displayName} ؟`,
+            acceptedAnswer: { '@type': 'Answer', text: `${displayName} يمارس في ${doctor.wilayas?.name_ar}${displayAddress ? `، ${displayAddress}` : ''}.` }
           },
         ]
       }
@@ -153,7 +158,7 @@ export default async function DoctorArPage({ params }) {
         <span>›</span>
         <Link href={`/ar/wilayas/${doctor.wilayas?.slug}`} className="hover:text-blue-600 transition">{doctor.wilayas?.name_ar}</Link>
         <span>›</span>
-        <span className="text-gray-600 truncate max-w-xs">{doctor.name_fr}</span>
+        <span className="text-gray-600 truncate max-w-xs">{displayName}</span>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -163,12 +168,12 @@ export default async function DoctorArPage({ params }) {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-start gap-5">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-3xl shrink-0 shadow-md">
-                {doctor.name_fr?.charAt(0)}
+                {displayName?.charAt(0)}
               </div>
               <div className="flex-1">
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div>
-                    <h1 className="text-xl font-bold text-gray-900 leading-tight">{doctor.name_fr}</h1>
+                    <h1 className="text-xl font-bold text-gray-900 leading-tight">{displayName}</h1>
                     <Link href={`/ar/specialites/${doctor.specialties?.slug}`}
                       className="text-blue-600 font-medium text-sm hover:underline mt-0.5 inline-block">
                       {doctor.specialties?.name_ar}
@@ -201,7 +206,7 @@ export default async function DoctorArPage({ params }) {
                 </div>
                 <span className="text-sm">
                   <span className="font-medium text-gray-800">{doctor.wilayas?.name_ar}</span>
-                  {doctor.address && <span className="text-gray-500"> — {doctor.address}</span>}
+                  {displayAddress && <span className="text-gray-500"> — {displayAddress}</span>}
                 </span>
               </div>
               {doctor.phone && (
@@ -211,7 +216,7 @@ export default async function DoctorArPage({ params }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                   </div>
-                  <a href={`tel:${doctor.phone}`} className="text-sm font-semibold text-green-600 hover:underline">
+                  <a href={`tel:${doctor.phone}`} className="text-sm font-semibold text-green-600 hover:underline" dir="ltr">
                     {doctor.phone}
                   </a>
                 </div>
@@ -237,7 +242,7 @@ export default async function DoctorArPage({ params }) {
               <h2 className="font-bold text-gray-900 text-lg mb-4">الخدمات المقدمة</h2>
               <div className="flex flex-wrap gap-2">
                 {services.map((s, i) => (
-                  <span key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-full text-sm font-medium">
+                  <span key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-full text-sm font-medium" dir="ltr">
                     ✓ {s.name_fr}
                   </span>
                 ))}
@@ -253,7 +258,7 @@ export default async function DoctorArPage({ params }) {
                   <div className="text-center">
                     <div className="text-4xl mb-2">📍</div>
                     <p className="text-blue-600 font-semibold text-sm">عرض على خرائط Google</p>
-                    <p className="text-blue-400 text-xs mt-1">{doctor.address || doctor.wilayas?.name_ar}</p>
+                    <p className="text-blue-400 text-xs mt-1">{displayAddress || doctor.wilayas?.name_ar}</p>
                   </div>
                   <div className="absolute top-3 left-3 bg-white rounded-lg px-2.5 py-1.5 shadow-lg flex items-center gap-1.5">
                     <span className="text-xs font-bold text-gray-700">Google Maps</span>
@@ -266,7 +271,7 @@ export default async function DoctorArPage({ params }) {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800">{doctor.address || doctor.wilayas?.name_ar}</p>
+                    <p className="text-sm font-semibold text-gray-800">{displayAddress || doctor.wilayas?.name_ar}</p>
                     <p className="text-xs text-gray-400">{doctor.wilayas?.name_ar} — الجزائر</p>
                   </div>
                 </div>
@@ -279,27 +284,30 @@ export default async function DoctorArPage({ params }) {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-bold text-gray-900">
-                  {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar}
+                  أطباء {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar}
                 </h2>
                 <Link href={`/ar/specialites/${doctor.specialties?.slug}`} className="text-sm text-blue-600 hover:underline">
                   ← عرض الكل
                 </Link>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {similar.map(s => (
-                  <Link key={s.id} href={`/ar/docteur/${s.slug}`}>
-                    <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold shrink-0">
-                        {s.name_fr?.charAt(0)}
+                {similar.map(s => {
+                  const simName = s.name_ar || s.name_fr
+                  return (
+                    <Link key={s.id} href={`/ar/docteur/${s.slug}`}>
+                      <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold shrink-0">
+                          {simName?.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-800 text-sm truncate">{simName}</p>
+                          <p className="text-xs text-gray-500">{s.wilayas?.name_ar}</p>
+                        </div>
+                        <span className="text-xs text-yellow-500 font-bold">★ {s.rating || 0}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-800 text-sm truncate">{s.name_fr}</p>
-                        <p className="text-xs text-gray-500">{s.wilayas?.name_ar}</p>
-                      </div>
-                      <span className="text-xs text-yellow-500 font-bold">★ {s.rating || 0}</span>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -307,42 +315,42 @@ export default async function DoctorArPage({ params }) {
           {/* نص SEO */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              {doctor.name_fr} — {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar}
+              {displayName} — {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar}
             </h2>
             <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
               <p>
-                {doctor.name_fr} هو {doctor.specialties?.name_ar} يمارس في {doctor.wilayas?.name_ar}، الجزائر.
-                {doctor.address && ` العيادة تقع في ${doctor.address}.`}
+                {displayName} هو {doctor.specialties?.name_ar} يمارس في {doctor.wilayas?.name_ar}، الجزائر.
+                {displayAddress && ` العيادة تقع في ${displayAddress}.`}
                 {services && services.length > 0 && ` يقدم الخدمات التالية : ${services.map(s => s.name_fr).join('، ')}.`}
               </p>
               <p>
-                لحجز موعد مع {doctor.name_fr} في {doctor.wilayas?.name_ar}،
-                اتصل مباشرة على <a href={`tel:${doctor.phone}`} className="text-blue-600 font-semibold">{doctor.phone}</a>.
+                لحجز موعد مع {displayName} في {doctor.wilayas?.name_ar}،
+                اتصل مباشرة على <a href={`tel:${doctor.phone}`} className="text-blue-600 font-semibold" dir="ltr">{doctor.phone}</a>.
                 {doctor.rating > 0 && ` تقييم الطبيب ${doctor.rating}/5 من مرضاه على دليل الأطباء.`}
               </p>
             </div>
 
             <div className="mt-4 space-y-3">
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="font-semibold text-gray-700 text-sm mb-1">كيف أحجز موعداً مع {doctor.name_fr} ؟</p>
+                <p className="font-semibold text-gray-700 text-sm mb-1">كيف أحجز موعداً مع {displayName} ؟</p>
                 <p className="text-gray-500 text-sm">
-                  اتصل مباشرة على <a href={`tel:${doctor.phone}`} className="text-blue-600 font-medium">{doctor.phone}</a> لحجز موعدك في {doctor.wilayas?.name_ar}.
-                  {doctor.address && ` العيادة في ${doctor.address}.`}
+                  اتصل مباشرة على <a href={`tel:${doctor.phone}`} className="text-blue-600 font-medium" dir="ltr">{doctor.phone}</a> لحجز موعدك في {doctor.wilayas?.name_ar}.
+                  {displayAddress && ` العيادة في ${displayAddress}.`}
                 </p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="font-semibold text-gray-700 text-sm mb-1">أين يقع {doctor.name_fr} ؟</p>
+                <p className="font-semibold text-gray-700 text-sm mb-1">أين يقع {displayName} ؟</p>
                 <p className="text-gray-500 text-sm">
-                  {doctor.name_fr} يمارس في {doctor.wilayas?.name_ar}{doctor.address ? `، ${doctor.address}` : ''}.
+                  {displayName} يمارس في {doctor.wilayas?.name_ar}{displayAddress ? `، ${displayAddress}` : ''}.
                   {doctor.google_map_url && <> <a href={doctor.google_map_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">عرض على الخريطة ←</a></>}
                 </p>
               </div>
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                 <p className="font-semibold text-blue-800 text-sm mb-1">
-                  {doctor.specialties?.name_ar} آخرون في {doctor.wilayas?.name_ar}
+                  أطباء {doctor.specialties?.name_ar} آخرون في {doctor.wilayas?.name_ar}
                 </p>
                 <Link href={`/ar/specialites/${doctor.specialties?.slug}`} className="text-blue-600 text-sm hover:underline">
-                  عرض كل {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar} ←
+                  عرض كل أطباء {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar} ←
                 </Link>
               </div>
             </div>
