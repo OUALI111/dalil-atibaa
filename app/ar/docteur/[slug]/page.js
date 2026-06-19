@@ -56,9 +56,9 @@ export default async function DoctorArPage({ params }) {
   const displayAddress = doctor.address_ar || doctor.address
 
   const { data: services } = await supabase
-    .from('services')
-    .select('name_fr')
-    .eq('specialty_id', doctor.specialty_id)
+  .from('services')
+  .select('name_fr, name_ar')
+  .eq('specialty_id', doctor.specialty_id)
 
   const { data: similar } = await supabase
     .from('doctors')
@@ -242,10 +242,10 @@ export default async function DoctorArPage({ params }) {
               <h2 className="font-bold text-gray-900 text-lg mb-4">الخدمات المقدمة</h2>
               <div className="flex flex-wrap gap-2">
                 {services.map((s, i) => (
-                  <span key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-full text-sm font-medium" dir="ltr">
-                    ✓ {s.name_fr}
-                  </span>
-                ))}
+  <span key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-full text-sm font-medium">
+    ✓ {s.name_ar || s.name_fr}
+  </span>
+))}
               </div>
             </div>
           )}
@@ -321,7 +321,7 @@ export default async function DoctorArPage({ params }) {
               <p>
                 {displayName} هو {doctor.specialties?.name_ar} يمارس في {doctor.wilayas?.name_ar}، الجزائر.
                 {displayAddress && ` العيادة تقع في ${displayAddress}.`}
-                {services && services.length > 0 && ` يقدم الخدمات التالية : ${services.map(s => s.name_fr).join('، ')}.`}
+                {services && services.length > 0 && ` يقدم الخدمات التالية : ${services.map(s => s.name_ar || s.name_fr).join('، ')}.`}
               </p>
               <p>
                 لحجز موعد مع {displayName} في {doctor.wilayas?.name_ar}،
