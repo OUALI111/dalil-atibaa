@@ -121,10 +121,24 @@ export default function AdminDashboard() {
       if (period === '30d') start.setDate(now.getDate() - 30)
       if (period === '90d') start.setDate(now.getDate() - 90)
 
-      // ── Fetch avec visitor_id + referrer pour les nouvelles stats ─────────
-      let query = supabase.from('doctor_stats').select('doctor_id, event_type, visitor_id, referrer')
-      if (period !== 'all') query = query.gte('created_at', start.toISOString())
-      const { data: rows } = await query
+      // ── Essai avec visitor_id + referrer, fallback sans si erreur ───────────
+      let rows = null
+      let hasExtendedCols = true
+
+      try {
+        let q = supabase.from('doctor_stats').select('doctor_id, event_type, visitor_id, referrer')
+        if (period !== 'all') q = q.gte('created_at', start.toISOString())
+        const { data, error } = await q
+        if (error) throw error
+        rows = data
+      } catch {
+        // Colonnes visitor_id/referrer absentes → fallback sans elles
+        hasExtendedCols = false
+        let q = supabase.from('doctor_stats').select('doctor_id, event_type')
+        if (period !== 'all') q = q.gte('created_at', start.toISOString())
+        const { data } = await q
+        rows = data
+      }
 
       const totals = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
       const byDoc = {}
@@ -137,32 +151,24 @@ export default function AdminDashboard() {
         if (r.event_type === 'whatsapp_click') totals.whatsapp++
         if (r.event_type === 'map_click')      totals.maps++
 
-        // ── Visiteurs uniques (par session visitor_id) ─────────────────────
-        if (r.event_type === 'view' && r.visitor_id) {
-          uniqueVisitors.add(r.visitor_id)
-        }
-
-        // ── Comptage des origines ──────────────────────────────────────────
-        if (r.event_type === 'view' && r.referrer) {
-          const src = r.referrer
-          originCount[src] = (originCount[src] || 0) + 1
+        if (hasExtendedCols) {
+          if (r.event_type === 'view' && r.visitor_id) uniqueVisitors.add(r.visitor_id)
+          if (r.event_type === 'view' && r.referrer)   originCount[r.referrer] = (originCount[r.referrer] || 0) + 1
         }
 
         if (!byDoc[r.doctor_id]) byDoc[r.doctor_id] = { views:0, calls:0, whatsapp:0, maps:0 }
         byDoc[r.doctor_id][r.event_type === 'view' ? 'views' : r.event_type === 'call_click' ? 'calls' : r.event_type === 'whatsapp_click' ? 'whatsapp' : 'maps']++
       }
 
-      totals.uniqueVisitors = uniqueVisitors.size
+      totals.uniqueVisitors = hasExtendedCols ? uniqueVisitors.size : null
       setTrackingStats(totals)
 
-      // ── Origines triées par volume ─────────────────────────────────────────
       const originsArr = Object.entries(originCount)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8)
         .map(([src, count]) => ({ src, count }))
       setTrackingOrigins(originsArr)
 
-      // ── Top 10 médecins par vues ───────────────────────────────────────────
       const topIds = Object.entries(byDoc).sort((a,b) => b[1].views - a[1].views).slice(0,10).map(e => Number(e[0]))
       let docNames = {}
       if (topIds.length > 0) {
@@ -539,36 +545,46 @@ export default function AdminDashboard() {
                       ))}
                     </div>
 
-                    {/* ── Origines du trafic ── */}
-                    {trackingOrigins.length > 0 && (
-                      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                        <h3 className="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2">
-                          <span>🌍</span> Origine des visiteurs
-                        </h3>
-                        <div className="space-y-2">
+                    {/* ── Origine des visiteurs ─ toujours visible ──────────── */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                      <h3 className="font-bold text-gray-800 mb-4 text-sm flex items-center gap-2">
+                        <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
+                        </svg>
+                        Origine des visiteurs
+                      </h3>
+
+                      {trackingOrigins.length > 0 ? (
+                        <div className="space-y-3">
                           {trackingOrigins.map(({ src, count }) => {
                             const total = trackingStats.views || 1
                             const pct = Math.round((count / total) * 100)
-                            const ICONS = { direct:'🔗', google:'🔍', facebook:'📘', bing:'🔎', yahoo:'🟣', twitter:'🐦', instagram:'📸', youtube:'▶️', tiktok:'🎵', linkedin:'💼', whatsapp:'💬', other:'🌐' }
-                            const icon = ICONS[src] || '🌐'
+                            const LABELS = { direct:'Direct / Onglet', google:'Google', facebook:'Facebook', bing:'Bing', yahoo:'Yahoo', twitter:'Twitter / X', instagram:'Instagram', youtube:'YouTube', tiktok:'TikTok', linkedin:'LinkedIn', whatsapp:'WhatsApp', other:'Autre' }
+                            const label = LABELS[src] || src
                             return (
                               <div key={src} className="flex items-center gap-3">
-                                <span className="text-base w-6 text-center">{icon}</span>
-                                <span className="text-sm text-gray-700 capitalize w-24 truncate">{src}</span>
-                                <div className="flex-1 bg-gray-100 rounded-full h-2">
-                                  <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: pct + '%' }} />
+                                <span className="text-xs font-semibold text-gray-600 w-28 truncate capitalize">{label}</span>
+                                <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                                  <div className="bg-blue-500 h-2.5 rounded-full transition-all" style={{ width: pct + '%' }} />
                                 </div>
-                                <span className="text-xs font-semibold text-gray-500 w-10 text-right">{count}</span>
+                                <span className="text-xs font-bold text-gray-700 w-6 text-right">{count}</span>
                                 <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
                               </div>
                             )
                           })}
                         </div>
-                        {trackingStats.views > 0 && trackingOrigins.length === 0 && (
-                          <p className="text-xs text-gray-400 text-center py-2">Pas encore de données d'origine (nouvelles visites seulement)</p>
-                        )}
-                      </div>
-                    )}
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <p className="text-sm font-medium text-gray-500">En attente des premières visites</p>
+                          <p className="text-xs text-gray-400 mt-1">Les origines s'affichent dès qu'un visiteur arrive sur une fiche médecin</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
