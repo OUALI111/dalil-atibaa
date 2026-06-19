@@ -62,6 +62,7 @@ export default function AdminDashboard() {
   const [trackingPeriod, setTrackingPeriod] = useState('30d')
   const [trackingRows, setTrackingRows] = useState([])
   const [trackingLoading, setTrackingLoading] = useState(false)
+  const [trackingOrigins, setTrackingOrigins] = useState([])
 
   const [form, setForm] = useState({ name_fr:'', specialty_id:'', wilaya_id:'', phone:'', address:'', google_map_url:'', rating:'' })
   const [formLoading, setFormLoading] = useState(false)
@@ -120,23 +121,48 @@ export default function AdminDashboard() {
       if (period === '30d') start.setDate(now.getDate() - 30)
       if (period === '90d') start.setDate(now.getDate() - 90)
 
-      let query = supabase.from('doctor_stats').select('doctor_id, event_type')
+      // ── Fetch avec visitor_id + referrer pour les nouvelles stats ─────────
+      let query = supabase.from('doctor_stats').select('doctor_id, event_type, visitor_id, referrer')
       if (period !== 'all') query = query.gte('created_at', start.toISOString())
       const { data: rows } = await query
 
       const totals = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
       const byDoc = {}
+      const uniqueVisitors = new Set()
+      const originCount = {}
+
       for (const r of (rows || [])) {
         if (r.event_type === 'view')           totals.views++
         if (r.event_type === 'call_click')     totals.calls++
         if (r.event_type === 'whatsapp_click') totals.whatsapp++
         if (r.event_type === 'map_click')      totals.maps++
+
+        // ── Visiteurs uniques (par session visitor_id) ─────────────────────
+        if (r.event_type === 'view' && r.visitor_id) {
+          uniqueVisitors.add(r.visitor_id)
+        }
+
+        // ── Comptage des origines ──────────────────────────────────────────
+        if (r.event_type === 'view' && r.referrer) {
+          const src = r.referrer
+          originCount[src] = (originCount[src] || 0) + 1
+        }
+
         if (!byDoc[r.doctor_id]) byDoc[r.doctor_id] = { views:0, calls:0, whatsapp:0, maps:0 }
         byDoc[r.doctor_id][r.event_type === 'view' ? 'views' : r.event_type === 'call_click' ? 'calls' : r.event_type === 'whatsapp_click' ? 'whatsapp' : 'maps']++
       }
+
+      totals.uniqueVisitors = uniqueVisitors.size
       setTrackingStats(totals)
 
-      // get doctor names for top 10 by views
+      // ── Origines triées par volume ─────────────────────────────────────────
+      const originsArr = Object.entries(originCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([src, count]) => ({ src, count }))
+      setTrackingOrigins(originsArr)
+
+      // ── Top 10 médecins par vues ───────────────────────────────────────────
       const topIds = Object.entries(byDoc).sort((a,b) => b[1].views - a[1].views).slice(0,10).map(e => Number(e[0]))
       let docNames = {}
       if (topIds.length > 0) {
@@ -494,20 +520,55 @@ export default function AdminDashboard() {
                 </div>
 
                 {trackingStats && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { icon:'👁', label:'Visites pages', value:trackingStats.views, bg:'bg-blue-50', text:'text-blue-600' },
-                      { icon:'📞', label:'Clics Appel', value:trackingStats.calls, sub: trackingStats.views ? Math.round((trackingStats.calls/trackingStats.views)*100)+'%' : '0%', bg:'bg-green-50', text:'text-green-600' },
-                      { icon:'💬', label:'Clics WhatsApp', value:trackingStats.whatsapp, sub: trackingStats.views ? Math.round((trackingStats.whatsapp/trackingStats.views)*100)+'%' : '0%', bg:'bg-emerald-50', text:'text-emerald-600' },
-                      { icon:'🗺', label:'Clics Carte', value:trackingStats.maps, sub: trackingStats.views ? Math.round((trackingStats.maps/trackingStats.views)*100)+'%' : '0%', bg:'bg-orange-50', text:'text-orange-600' },
-                    ].map((s,i) => (
-                      <div key={i} className={`${s.bg} rounded-2xl p-5 border border-white shadow-sm`}>
-                        <p className="text-2xl mb-1">{s.icon}</p>
-                        <p className={`text-2xl font-bold ${s.text}`}>{s.value?.toLocaleString()}</p>
-                        <p className="text-gray-600 text-xs mt-0.5">{s.label}</p>
-                        {s.sub && <p className={`text-xs font-semibold mt-1 ${s.text}`}>Taux: {s.sub}</p>}
+                  <div className="space-y-4">
+                    {/* ── Cartes de stats ── */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                      {[
+                        { icon:'👁', label:'Vues totales', value:trackingStats.views, bg:'bg-blue-50', text:'text-blue-600' },
+                        { icon:'🧑', label:'Visiteurs uniques', value:trackingStats.uniqueVisitors ?? '—', sub: trackingStats.uniqueVisitors && trackingStats.views ? Math.round((trackingStats.uniqueVisitors/trackingStats.views)*100)+'% des vues' : null, bg:'bg-violet-50', text:'text-violet-600' },
+                        { icon:'📞', label:'Clics Appel', value:trackingStats.calls, sub: trackingStats.views ? Math.round((trackingStats.calls/trackingStats.views)*100)+'%' : '0%', bg:'bg-green-50', text:'text-green-600' },
+                        { icon:'💬', label:'Clics WhatsApp', value:trackingStats.whatsapp, sub: trackingStats.views ? Math.round((trackingStats.whatsapp/trackingStats.views)*100)+'%' : '0%', bg:'bg-emerald-50', text:'text-emerald-600' },
+                        { icon:'🗺', label:'Clics Carte', value:trackingStats.maps, sub: trackingStats.views ? Math.round((trackingStats.maps/trackingStats.views)*100)+'%' : '0%', bg:'bg-orange-50', text:'text-orange-600' },
+                      ].map((s,i) => (
+                        <div key={i} className={`${s.bg} rounded-2xl p-5 border border-white shadow-sm`}>
+                          <p className="text-2xl mb-1">{s.icon}</p>
+                          <p className={`text-2xl font-bold ${s.text}`}>{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</p>
+                          <p className="text-gray-600 text-xs mt-0.5">{s.label}</p>
+                          {s.sub && <p className={`text-xs font-semibold mt-1 ${s.text}`}>Taux: {s.sub}</p>}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ── Origines du trafic ── */}
+                    {trackingOrigins.length > 0 && (
+                      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                        <h3 className="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2">
+                          <span>🌍</span> Origine des visiteurs
+                        </h3>
+                        <div className="space-y-2">
+                          {trackingOrigins.map(({ src, count }) => {
+                            const total = trackingStats.views || 1
+                            const pct = Math.round((count / total) * 100)
+                            const ICONS = { direct:'🔗', google:'🔍', facebook:'📘', bing:'🔎', yahoo:'🟣', twitter:'🐦', instagram:'📸', youtube:'▶️', tiktok:'🎵', linkedin:'💼', whatsapp:'💬', other:'🌐' }
+                            const icon = ICONS[src] || '🌐'
+                            return (
+                              <div key={src} className="flex items-center gap-3">
+                                <span className="text-base w-6 text-center">{icon}</span>
+                                <span className="text-sm text-gray-700 capitalize w-24 truncate">{src}</span>
+                                <div className="flex-1 bg-gray-100 rounded-full h-2">
+                                  <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: pct + '%' }} />
+                                </div>
+                                <span className="text-xs font-semibold text-gray-500 w-10 text-right">{count}</span>
+                                <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {trackingStats.views > 0 && trackingOrigins.length === 0 && (
+                          <p className="text-xs text-gray-400 text-center py-2">Pas encore de données d'origine (nouvelles visites seulement)</p>
+                        )}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
 

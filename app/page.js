@@ -60,6 +60,15 @@ async function getStats() {
   return { totalDoctors, specialties, wilayas }
 }
 
+async function getMeilleursPages() {
+  const { data } = await supabase
+    .from('meilleurs_pages')
+    .select('specialty_slug, wilaya_slug, specialty_name, wilaya_name')
+    .eq('is_active', true)
+    .order('specialty_slug')
+  return data || []
+}
+
 const specialtyIcons = {
   dentiste: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
@@ -132,13 +141,25 @@ const faqItems = [
   },
 ]
 
+
+
 export default async function HomePage() {
-  const { totalDoctors, specialties, wilayas } = await getStats()
+  const [{ totalDoctors, specialties, wilayas }, meilleursPages] = await Promise.all([
+    getStats(),
+    getMeilleursPages(),
+  ])
 
   const topSpecialties = specialties?.filter(s => topSpecialtySlugs.includes(s.slug)) || []
   const otherSpecialties = specialties?.filter(s => !topSpecialtySlugs.includes(s.slug)) || []
   const popularWilayas = wilayas?.filter(w => popularWilayaSlugs.includes(w.slug)) || []
   const otherWilayas = wilayas?.filter(w => !popularWilayaSlugs.includes(w.slug)) || []
+
+  // Grouper les pages meilleurs par spécialité
+  const meilleursGrouped = meilleursPages.reduce((acc, p) => {
+    if (!acc[p.specialty_slug]) acc[p.specialty_slug] = { name: p.specialty_name, wilayas: [] }
+    acc[p.specialty_slug].wilayas.push({ slug: p.wilaya_slug, name: p.wilaya_name })
+    return acc
+  }, {})
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -329,6 +350,66 @@ export default async function HomePage() {
             </div>
           )}
         </section>
+
+        {/* ══════════════ RECHERCHES POPULAIRES ══════════════ */}
+        {meilleursPages.length > 0 && (
+          <section className="max-w-6xl mx-auto px-4 pb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">Recherches populaires</h2>
+                <p className="text-gray-500 text-sm mt-1">Les meilleures fiches médecins par ville, sélectionnées pour vous</p>
+              </div>
+              <span className="hidden sm:flex items-center gap-1.5 bg-blue-50 text-blue-600 text-xs font-semibold px-3 py-1.5 rounded-full border border-blue-100">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                Mis à jour {new Date().getFullYear()}
+              </span>
+            </div>
+
+            <div className="space-y-5">
+              {Object.entries(meilleursGrouped).map(([spSlug, { name, wilayas: wList }]) => (
+                <div key={spSlug} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  {/* En-tête spécialité */}
+                  <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50 bg-gradient-to-r from-gray-50 to-white">
+                    <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M12 12v3m0 0v3m0-3h3m-3 0H9" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-800 text-sm">Meilleurs {name}</p>
+                      <p className="text-xs text-gray-400">{wList.length} ville{wList.length > 1 ? 's' : ''} disponible{wList.length > 1 ? 's' : ''}</p>
+                    </div>
+                    <Link href={`/specialites/${spSlug}`}
+                      className="text-xs text-blue-600 hover:underline font-medium shrink-0">
+                      Voir tous →
+                    </Link>
+                  </div>
+
+                  {/* Grille des villes */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0 divide-x divide-y divide-gray-50">
+                    {wList.map(w => (
+                      <Link
+                        key={w.slug}
+                        href={`/meilleurs/${spSlug}-${w.slug}`}
+                        className="flex items-center gap-2.5 px-4 py-3.5 hover:bg-blue-50 transition group"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shrink-0 shadow-sm">
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition truncate">{w.name}</p>
+                          <p className="text-xs text-gray-400 group-hover:text-blue-500 transition">Voir la liste →</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* WILAYAS */}
         <section className="bg-white py-12">

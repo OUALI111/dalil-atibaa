@@ -151,13 +151,21 @@ if (!doctor) {
           <Link href="/">
   <img src="/logo.svg" alt="Dalil Atibaa" style={{height:'36px', width:'auto'}} />
 </Link>
-          <Link href="/recherche"
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            Rechercher un medecin
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/ar/docteur/${slug}`}
+              className="flex items-center gap-1.5 border border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-600 hover:text-green-700 text-sm px-3 py-2 rounded-xl font-medium transition"
+              title="Version arabe">
+              <span className="text-base leading-none">🇩🇿</span>
+              <span className="font-arabic" style={{fontFamily:'serif'}}>عربي</span>
+            </Link>
+            <Link href="/recherche"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Rechercher un medecin
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -487,6 +495,24 @@ if (!doctor) {
               </div>
             </div>
           )}
+
+          {/* Version arabe */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Version arabe</p>
+            <Link href={`/ar/docteur/${slug}`}
+              className="flex items-center justify-between p-2 rounded-lg hover:bg-green-50 transition group border border-transparent hover:border-green-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🇩🇿</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 group-hover:text-green-700">عرض بالعربية</p>
+                  <p className="text-xs text-gray-400">Voir la fiche en arabe</p>
+                </div>
+              </div>
+              <svg className="w-4 h-4 text-gray-300 group-hover:text-green-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
 
         </div>
       </div>

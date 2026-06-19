@@ -43,12 +43,13 @@ export default async function SpecialitePage({ params, searchParams }) {
     .in('id', wilayaIds)
     .order('name_fr')
 
-    const { data: meilleursPages } = await supabase
-  .from('meilleurs_pages')
-  .select('wilaya_slug')
-  .eq('specialty_slug', slug)
-  .eq('is_active', true)
-  
+  const { data: meilleursPages } = await supabase
+    .from('meilleurs_pages')
+    .select('wilaya_slug, wilaya_name')
+    .eq('specialty_slug', slug)
+    .eq('is_active', true)
+    .order('wilaya_name')
+
   // Médecins paginés
   const from = page * pageSize
   const to = from + pageSize - 1
@@ -198,31 +199,35 @@ export default async function SpecialitePage({ params, searchParams }) {
           </div>
         )}
         
-     {/* MEILLEURS PAGES */}
-{meilleursPages && meilleursPages.length > 0 && (
-  <div className="bg-white rounded-2xl p-6 shadow-sm mt-6">
-    <h2 className="text-lg font-bold text-gray-800 mb-4">
-      Meilleurs {specialty.name_fr} par wilaya
-    </h2>
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-      {meilleursPages.map(mp => {
-        const wilayaObj = wilayas?.find(w => w.slug === mp.wilaya_slug)
-        return (
-          <Link key={mp.wilaya_slug} href={`/meilleurs/${slug}-${mp.wilaya_slug}`}
-            className="flex items-center gap-2 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition group">
-            <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            </svg>
-            <span className="text-sm text-gray-700 group-hover:text-blue-600 font-medium">
-              {wilayaObj?.name_fr || mp.wilaya_slug}
-            </span>
-          </Link>
-        )
-      })}
-    </div>
-  </div>
-)}
-        {/* SEO CONTENT */}
+        {/* ── MEILLEURS PAR WILAYA ─ après les filtres, avant la liste ──────── */}
+        {meilleursPages && meilleursPages.length > 0 && (
+          <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-bold text-blue-500 uppercase tracking-wide mb-0.5">Sélection</p>
+                <h2 className="font-bold text-gray-800">Meilleurs {specialty.name_fr} par ville</h2>
+              </div>
+              <span className="text-xs text-blue-500 bg-white border border-blue-100 px-2.5 py-1 rounded-full font-medium">
+                {meilleursPages.length} ville{meilleursPages.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {meilleursPages.map(mp => (
+                <Link
+                  key={mp.wilaya_slug}
+                  href={`/meilleurs/${slug}-${mp.wilaya_slug}`}
+                  className="flex items-center justify-between gap-2 bg-white hover:bg-blue-600 text-gray-700 hover:text-white border border-blue-100 hover:border-blue-600 px-4 py-2.5 rounded-xl transition group shadow-sm"
+                >
+                  <span className="text-sm font-medium truncate">{mp.wilaya_name}</span>
+                  <svg className="w-3.5 h-3.5 shrink-0 text-blue-400 group-hover:text-white transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl p-6 shadow-sm mt-10">
           <h2 className="text-xl font-bold text-gray-800 mb-3">{specialty.name_fr} en Algérie</h2>
           <p className="text-gray-600 text-sm leading-relaxed mb-4">

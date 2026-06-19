@@ -140,8 +140,11 @@ export default async function DoctorArPage({ params }) {
             <span className="font-bold text-gray-900">دليل الأطباء</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link href={`/docteur/${slug}`} className="text-sm text-gray-500 hover:text-blue-600 transition">
-              🇫🇷 Français
+            <Link href={`/docteur/${slug}`}
+              className="flex items-center gap-1.5 border border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-gray-600 hover:text-blue-700 text-sm px-3 py-2 rounded-xl font-medium transition"
+              title="Version française">
+              <span className="text-base leading-none">🇫🇷</span>
+              <span>Français</span>
             </Link>
             <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
               ابحث عن طبيب
@@ -392,9 +395,15 @@ export default async function DoctorArPage({ params }) {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">النسخة الفرنسية</p>
             <Link href={`/docteur/${slug}`}
-              className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition group">
-              <span className="text-sm text-gray-700 group-hover:text-blue-600">🇫🇷 Voir en français</span>
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              className="flex items-center justify-between p-2 rounded-lg hover:bg-blue-50 transition group border border-transparent hover:border-blue-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🇫🇷</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 group-hover:text-blue-700">Voir en français</p>
+                  <p className="text-xs text-gray-400">النسخة الفرنسية من هذه الصفحة</p>
+                </div>
+              </div>
+              <svg className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
