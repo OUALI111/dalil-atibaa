@@ -82,6 +82,8 @@ export default async function MeilleursPage({ params }) {
     .neq('wilaya_slug', wilayaSlug)
 
   const faq = page.faq || []
+  const needsSections = page.needs_sections || []
+  const communesSections = page.communes_sections || []
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -100,6 +102,18 @@ export default async function MeilleursPage({ params }) {
         description: page.meta_description,
         url: `https://www.dalil-atibaa.com/meilleurs/${slug}`,
         about: { '@type': 'MedicalSpecialty', name: page.specialty_name }
+      },
+      {
+        '@type': 'ItemList',
+        itemListElement: (doctors || []).map((d, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          item: {
+            '@type': 'Physician',
+            name: d.name_fr,
+            url: `https://www.dalil-atibaa.com/docteur/${d.slug}`
+          }
+        }))
       }
     ]
   }
@@ -154,35 +168,26 @@ export default async function MeilleursPage({ params }) {
             <p className="text-blue-100 text-sm">Liste complète mise à jour en {new Date().getFullYear()}</p>
           </div>
 
-          {/* INTRO */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-            <div className="space-y-5">
-              {page.intro_fr
-                .split(/\n\n+/)
-                .filter(p => p.trim())
-                .map((p, i) => (
-                  <p key={i} className="text-gray-600 leading-relaxed text-base">
-                    {p.trim()}
-                  </p>
-                ))}
-            </div>
-            {page.communes && (
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <h2 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  </svg>
-                  Zones couvertes
-                </h2>
-                <p className="text-gray-500 text-sm leading-relaxed">{page.communes}</p>
+          {/* INTRO COURTE */}
+          {page.intro_short && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <div className="space-y-4">
+                {page.intro_short
+                  .split(/\n\n+/)
+                  .filter(p => p.trim())
+                  .map((p, i) => (
+                    <p key={i} className="text-gray-600 leading-relaxed text-base">
+                      {p.trim()}
+                    </p>
+                  ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* LISTE MÉDECINS */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          {/* LISTE MÉDECINS — EN PREMIER */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6" id="liste">
             <h2 className="font-bold text-gray-900 text-xl mb-6">
-              {page.specialty_name} à {page.wilaya_name} — Liste complète
+              Liste des meilleurs {page.specialty_name.toLowerCase()} à {page.wilaya_name}
             </h2>
             {doctors && doctors.length > 0 ? (
               <div className="space-y-3">
@@ -220,6 +225,68 @@ export default async function MeilleursPage({ params }) {
             )}
           </div>
 
+          {/* CRITÈRES DE SÉLECTION */}
+          {page.selection_criteria && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h2 className="font-bold text-gray-900 text-lg mb-4">
+                Comment sont sélectionnés les {page.specialty_name.toLowerCase()} ?
+              </h2>
+              <div className="space-y-2 text-gray-600 leading-relaxed text-sm">
+                {page.selection_criteria.split(/\n\n+/).map((block, i) => {
+                  if (block.includes('•')) {
+                    return (
+                      <ul key={i} className="space-y-1.5 my-3">
+                        {block.split('\n').filter(l => l.trim()).map((line, j) => (
+                          <li key={j} className="flex items-start gap-2">
+                            <span className="text-blue-500 mt-0.5">✓</span>
+                            <span>{line.replace('•', '').trim()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  }
+                  return <p key={i}>{block.trim()}</p>
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* BESOINS SPÉCIFIQUES */}
+          {needsSections.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h2 className="font-bold text-gray-900 text-xl mb-6">
+                Trouver un {page.specialty_name.slice(0, -1).toLowerCase()} à {page.wilaya_name} selon votre besoin
+              </h2>
+              <div className="space-y-5">
+                {needsSections.map((s, i) => (
+                  <div key={i} className="border-b border-gray-50 last:border-0 pb-5 last:pb-0">
+                    <h3 className="font-semibold text-gray-800 text-base mb-1.5">{s.title}</h3>
+                    <p className="text-gray-500 text-sm leading-relaxed">{s.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PAR COMMUNE */}
+          {communesSections.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h2 className="font-bold text-gray-900 text-xl mb-6">
+                {page.specialty_name} par commune à {page.wilaya_name}
+              </h2>
+              <div className="grid sm:grid-cols-2 gap-5">
+                {communesSections.map((c, i) => (
+                  <div key={i}>
+                    <h3 className="font-semibold text-gray-800 text-sm mb-1.5">
+                      {page.specialty_name.slice(0, -1)} à {c.commune}
+                    </h3>
+                    <p className="text-gray-500 text-xs leading-relaxed">{c.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* FAQ */}
           {faq.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -247,10 +314,10 @@ export default async function MeilleursPage({ params }) {
             <p className="text-blue-100 text-sm mb-5">
               {doctors?.length || 0} praticiens disponibles dans notre annuaire
             </p>
-            <Link href={`/recherche?specialite=${specialty?.slug}&wilaya=${wilaya?.slug}`}
+            <a href="#liste"
               className="block text-center bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
-              Voir tous les résultats →
-            </Link>
+              Voir la liste →
+            </a>
             <Link href="/recherche"
               className="block text-center text-white/80 hover:text-white text-sm mt-3 transition">
               Recherche avancée →
