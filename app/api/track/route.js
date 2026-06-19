@@ -1,6 +1,5 @@
 import { supabase } from '../../../lib/supabase'
 
-// ─── Liste des patterns de bots côté serveur (User-Agent) ────────────────────
 const BOT_UA_PATTERNS = [
   /bot/i, /crawl/i, /spider/i, /slurp/i, /fetch/i,
   /curl/i, /wget/i, /python/i, /java\//i, /go-http/i,
@@ -13,19 +12,18 @@ const BOT_UA_PATTERNS = [
 ]
 
 function isServerBot(userAgent) {
-  if (!userAgent) return true // pas de UA = bot probable
+  if (!userAgent) return true
   return BOT_UA_PATTERNS.some(p => p.test(userAgent))
 }
 
 export async function POST(request) {
   try {
-    // ── Filtre bot côté serveur ────────────────────────────────────────────
     const userAgent = request.headers.get('user-agent') || ''
     if (isServerBot(userAgent)) {
       return Response.json({ skipped: 'bot' })
     }
 
-    const { doctor_id, event_type, visitor_id, referrer } = await request.json()
+    const { doctor_id, event_type } = await request.json()
 
     if (!doctor_id || !event_type) {
       return Response.json({ error: 'Missing params' }, { status: 400 })
@@ -36,12 +34,15 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid event_type' }, { status: 400 })
     }
 
-    await supabase.from('doctor_stats').insert({
+    // Insérer uniquement les colonnes qui existent dans doctor_stats
+    const { error } = await supabase.from('doctor_stats').insert({
       doctor_id,
       event_type,
-      visitor_id: visitor_id || null,
-      referrer:   referrer   || null,
     })
+
+    if (error) {
+      return Response.json({ error: error.message }, { status: 500 })
+    }
 
     return Response.json({ success: true })
   } catch (error) {
