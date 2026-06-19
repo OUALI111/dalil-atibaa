@@ -121,29 +121,14 @@ export default function AdminDashboard() {
       if (period === '30d') start.setDate(now.getDate() - 30)
       if (period === '90d') start.setDate(now.getDate() - 90)
 
-      // ── Essai avec visitor_id + referrer, fallback sans si erreur ───────────
-      let rows = null
-      let hasExtendedCols = true
-
-      try {
-        let q = supabase.from('doctor_stats').select('doctor_id, event_type, visitor_id, referrer')
-        if (period !== 'all') q = q.gte('created_at', start.toISOString())
-        const { data, error } = await q
-        if (error) throw error
-        rows = data
-      } catch {
-        // Colonnes visitor_id/referrer absentes → fallback sans elles
-        hasExtendedCols = false
-        let q = supabase.from('doctor_stats').select('doctor_id, event_type')
-        if (period !== 'all') q = q.gte('created_at', start.toISOString())
-        const { data } = await q
-        rows = data
-      }
+      // Lire uniquement les colonnes existantes dans doctor_stats
+      let q = supabase.from('doctor_stats').select('doctor_id, event_type')
+      if (period !== 'all') q = q.gte('created_at', start.toISOString())
+      const { data: rows, error } = await q
+      if (error) throw error
 
       const totals = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
       const byDoc = {}
-      const uniqueVisitors = new Set()
-      const originCount = {}
 
       for (const r of (rows || [])) {
         if (r.event_type === 'view')           totals.views++
@@ -151,23 +136,15 @@ export default function AdminDashboard() {
         if (r.event_type === 'whatsapp_click') totals.whatsapp++
         if (r.event_type === 'map_click')      totals.maps++
 
-        if (hasExtendedCols) {
-          if (r.event_type === 'view' && r.visitor_id) uniqueVisitors.add(r.visitor_id)
-          if (r.event_type === 'view' && r.referrer)   originCount[r.referrer] = (originCount[r.referrer] || 0) + 1
-        }
-
         if (!byDoc[r.doctor_id]) byDoc[r.doctor_id] = { views:0, calls:0, whatsapp:0, maps:0 }
-        byDoc[r.doctor_id][r.event_type === 'view' ? 'views' : r.event_type === 'call_click' ? 'calls' : r.event_type === 'whatsapp_click' ? 'whatsapp' : 'maps']++
+        if (r.event_type === 'view')           byDoc[r.doctor_id].views++
+        if (r.event_type === 'call_click')     byDoc[r.doctor_id].calls++
+        if (r.event_type === 'whatsapp_click') byDoc[r.doctor_id].whatsapp++
+        if (r.event_type === 'map_click')      byDoc[r.doctor_id].maps++
       }
 
-      totals.uniqueVisitors = hasExtendedCols ? uniqueVisitors.size : null
       setTrackingStats(totals)
-
-      const originsArr = Object.entries(originCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
-        .map(([src, count]) => ({ src, count }))
-      setTrackingOrigins(originsArr)
+      setTrackingOrigins([])
 
       const topIds = Object.entries(byDoc).sort((a,b) => b[1].views - a[1].views).slice(0,10).map(e => Number(e[0]))
       let docNames = {}
@@ -526,65 +503,20 @@ export default function AdminDashboard() {
                 </div>
 
                 {trackingStats && (
-                  <div className="space-y-4">
-                    {/* ── Cartes de stats ── */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                      {[
-                        { icon:'👁', label:'Vues totales', value:trackingStats.views, bg:'bg-blue-50', text:'text-blue-600' },
-                        { icon:'🧑', label:'Visiteurs uniques', value:trackingStats.uniqueVisitors ?? '—', sub: trackingStats.uniqueVisitors && trackingStats.views ? Math.round((trackingStats.uniqueVisitors/trackingStats.views)*100)+'% des vues' : null, bg:'bg-violet-50', text:'text-violet-600' },
-                        { icon:'📞', label:'Clics Appel', value:trackingStats.calls, sub: trackingStats.views ? Math.round((trackingStats.calls/trackingStats.views)*100)+'%' : '0%', bg:'bg-green-50', text:'text-green-600' },
-                        { icon:'💬', label:'Clics WhatsApp', value:trackingStats.whatsapp, sub: trackingStats.views ? Math.round((trackingStats.whatsapp/trackingStats.views)*100)+'%' : '0%', bg:'bg-emerald-50', text:'text-emerald-600' },
-                        { icon:'🗺', label:'Clics Carte', value:trackingStats.maps, sub: trackingStats.views ? Math.round((trackingStats.maps/trackingStats.views)*100)+'%' : '0%', bg:'bg-orange-50', text:'text-orange-600' },
-                      ].map((s,i) => (
-                        <div key={i} className={`${s.bg} rounded-2xl p-5 border border-white shadow-sm`}>
-                          <p className="text-2xl mb-1">{s.icon}</p>
-                          <p className={`text-2xl font-bold ${s.text}`}>{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</p>
-                          <p className="text-gray-600 text-xs mt-0.5">{s.label}</p>
-                          {s.sub && <p className={`text-xs font-semibold mt-1 ${s.text}`}>Taux: {s.sub}</p>}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* ── Origine des visiteurs ─ toujours visible ──────────── */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                      <h3 className="font-bold text-gray-800 mb-4 text-sm flex items-center gap-2">
-                        <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
-                        </svg>
-                        Origine des visiteurs
-                      </h3>
-
-                      {trackingOrigins.length > 0 ? (
-                        <div className="space-y-3">
-                          {trackingOrigins.map(({ src, count }) => {
-                            const total = trackingStats.views || 1
-                            const pct = Math.round((count / total) * 100)
-                            const LABELS = { direct:'Direct / Onglet', google:'Google', facebook:'Facebook', bing:'Bing', yahoo:'Yahoo', twitter:'Twitter / X', instagram:'Instagram', youtube:'YouTube', tiktok:'TikTok', linkedin:'LinkedIn', whatsapp:'WhatsApp', other:'Autre' }
-                            const label = LABELS[src] || src
-                            return (
-                              <div key={src} className="flex items-center gap-3">
-                                <span className="text-xs font-semibold text-gray-600 w-28 truncate capitalize">{label}</span>
-                                <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                                  <div className="bg-blue-500 h-2.5 rounded-full transition-all" style={{ width: pct + '%' }} />
-                                </div>
-                                <span className="text-xs font-bold text-gray-700 w-6 text-right">{count}</span>
-                                <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-6 text-center">
-                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <p className="text-sm font-medium text-gray-500">En attente des premières visites</p>
-                          <p className="text-xs text-gray-400 mt-1">Les origines s'affichent dès qu'un visiteur arrive sur une fiche médecin</p>
-                        </div>
-                      )}
-                    </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { icon:'👁', label:'Visites pages', value:trackingStats.views, bg:'bg-blue-50', text:'text-blue-600' },
+                      { icon:'📞', label:'Clics Appel', value:trackingStats.calls, sub: trackingStats.views ? Math.round((trackingStats.calls/trackingStats.views)*100)+'%' : '0%', bg:'bg-green-50', text:'text-green-600' },
+                      { icon:'💬', label:'Clics WhatsApp', value:trackingStats.whatsapp, sub: trackingStats.views ? Math.round((trackingStats.whatsapp/trackingStats.views)*100)+'%' : '0%', bg:'bg-emerald-50', text:'text-emerald-600' },
+                      { icon:'🗺', label:'Clics Carte', value:trackingStats.maps, sub: trackingStats.views ? Math.round((trackingStats.maps/trackingStats.views)*100)+'%' : '0%', bg:'bg-orange-50', text:'text-orange-600' },
+                    ].map((s,i) => (
+                      <div key={i} className={`${s.bg} rounded-2xl p-5 border border-white shadow-sm`}>
+                        <p className="text-2xl mb-1">{s.icon}</p>
+                        <p className={`text-2xl font-bold ${s.text}`}>{s.value?.toLocaleString()}</p>
+                        <p className="text-gray-600 text-xs mt-0.5">{s.label}</p>
+                        {s.sub && <p className={`text-xs font-semibold mt-1 ${s.text}`}>Taux: {s.sub}</p>}
+                      </div>
+                    ))}
                   </div>
                 )}
 
