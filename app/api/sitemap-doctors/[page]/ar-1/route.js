@@ -1,9 +1,11 @@
-import { supabase } from '../../lib/supabase'
+import { supabase } from '../../../../lib/supabase'
+
 export const dynamic = 'force-dynamic'
+
+const BATCH = 1000
 
 export async function GET() {
   const baseUrl = 'https://www.dalil-atibaa.com'
-  const BATCH = 1000
 
   const allDoctors = []
   let from = 0
