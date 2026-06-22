@@ -27,7 +27,14 @@ export async function generateMetadata({ params }) {
     title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr} | Prenez RDV facilement sur Dalil Atibaa`,
     description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez facilement rendez-vous en ligne.`,
     keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
-    alternates: { canonical: `https://www.dalil-atibaa.com/docteur/${slug}` },
+    alternates: 
+    { canonical: `https://www.dalil-atibaa.com/docteur/${slug}` , 
+    languages: {
+      'fr': `https://www.dalil-atibaa.com/docteur/${slug}`,
+      'ar': `https://www.dalil-atibaa.com/ar/docteur/${slug}`,
+      'x-default': `https://www.dalil-atibaa.com/docteur/${slug}`,
+    }
+  },
     openGraph: {
       title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}`,
       description: `Services: ${servicesText}`,
