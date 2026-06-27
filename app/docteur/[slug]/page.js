@@ -1,51 +1,16 @@
 import { supabase } from '../../../lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
 import DoctorTracker from './DoctorTracker'
 import { CallButton, WhatsappButton, MapButton } from './DoctorButtons'
 export const revalidate = 3600
 
-export async function generateMetadata({ params }) {
-  const { slug } = await params
-  const { data: doctor } = await supabase
-    .from('doctors')
-    .select('name_fr, specialty_id, specialties(name_fr), wilayas(name_fr)')
-    .eq('slug', slug)
-    .single()
-
-  if (!doctor) return { title: 'Medecin introuvable' }
-
-  const { data: services } = await supabase
-    .from('services')
-    .select('name_fr')
-    .eq('specialty_id', doctor.specialty_id)
-    .limit(3)
-
-  const servicesText = services?.map(s => s.name_fr).join(', ')
-
-  return {
-    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr} | Prenez RDV facilement sur Dalil Atibaa`,
-    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez facilement rendez-vous en ligne.`,
-    keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
-    alternates: 
-    { canonical: `https://www.dalil-atibaa.com/docteur/${slug}` , 
-    languages: {
-      'fr': `https://www.dalil-atibaa.com/docteur/${slug}`,
-      'ar': `https://www.dalil-atibaa.com/ar/docteur/${slug}`,
-      'x-default': `https://www.dalil-atibaa.com/docteur/${slug}`,
-    }
-  },
-    openGraph: {
-      title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} a ${doctor.wilayas?.name_fr}`,
-      description: `Services: ${servicesText}`,
-      type: 'website',
-    }
-  }
-}
-
-export default async function DoctorPage({ params }) {
-  const { slug } = await params
-
+// ✅ react cache() : la requête SQL est exécutée UNE SEULE FOIS par rendu de page.
+// Sans cache(), generateMetadata() ET DoctorPage() faisaient chacun leur propre
+// requête SQL séparée → 2 requêtes identiques pour le même slug.
+// Avec cache(), la deuxième fonction réutilise le résultat de la première : 0 coût CPU.
+const getDoctorBySlug = cache(async (slug) => {
   const { data: doctor } = await supabase
     .from('doctors')
     .select(`
@@ -57,6 +22,51 @@ export default async function DoctorPage({ params }) {
     `)
     .eq('slug', slug)
     .single()
+  return doctor
+})
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params
+  // ✅ Utilise getDoctorBySlug (cached) → pas de nouvelle requête SQL si DoctorPage a déjà appelé cette fonction
+  const doctor = await getDoctorBySlug(slug)
+
+  if (!doctor) return { title: 'Médecin introuvable' }
+
+  const { data: services } = await supabase
+    .from('services')
+    .select('name_fr')
+    .eq('specialty_id', doctor.specialty_id)
+    .limit(3)
+
+  const servicesText = services?.map(s => s.name_fr).join(', ')
+
+  return {
+    // ✅ Correction accent : "a" → "à" (améliore le CTR dans Google)
+    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr} | Prenez RDV facilement sur Dalil Atibaa`,
+    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez facilement rendez-vous en ligne.`,
+    keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
+    alternates: {
+      canonical: `https://www.dalil-atibaa.com/docteur/${slug}`,
+      languages: {
+        'fr': `https://www.dalil-atibaa.com/docteur/${slug}`,
+        'ar': `https://www.dalil-atibaa.com/ar/docteur/${slug}`,
+        'x-default': `https://www.dalil-atibaa.com/docteur/${slug}`,
+      }
+    },
+    openGraph: {
+      title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}`,
+      description: `Services: ${servicesText}`,
+      type: 'website',
+    }
+  }
+}
+
+export default async function DoctorPage({ params }) {
+  const { slug } = await params
+
+  // ✅ getDoctorBySlug (cached) : si generateMetadata a déjà fait la requête,
+  // React réutilise le résultat en mémoire → 0 requête SQL supplémentaire
+  const doctor = await getDoctorBySlug(slug)
 
 if (!doctor) {
   const { data: redirect } = await supabase

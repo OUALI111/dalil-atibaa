@@ -1,6 +1,11 @@
 import { supabase } from '../lib/supabase'
 
-export const dynamic = 'force-dynamic'
+// ✅ Cache 24h au lieu de force-dynamic
+// Le sitemap ne change pas plusieurs fois par jour.
+// Google le crawle rarement → inutile de le recalculer à chaque visite.
+// Avant : force-dynamic = 1 requête SQL à chaque fois que Google visite /sitemap.xml
+// Après : 1 requête SQL toutes les 24h maximum
+export const revalidate = 86400
 
 export default async function sitemap() {
   const baseUrl = 'https://www.dalil-atibaa.com'
@@ -14,18 +19,22 @@ export default async function sitemap() {
   const totalDoctors = count || 0
   const totalPages = Math.ceil(totalDoctors / pageSize)
 
+  // ✅ Date fixe = Google sait que le sitemap est stable (ne change pas à chaque crawl)
+  // Une date changeante à chaque génération peut tromper Google et gaspiller le crawl budget
+  const lastModified = new Date('2026-06-01T00:00:00Z')
+
   const doctorSitemaps = Array.from({ length: totalPages }, (_, i) => ({
     url: `${baseUrl}/sitemap-doctors-${i + 1}.xml`,
-    lastModified: new Date(),
+    lastModified,
   }))
 
   return [
-    { url: `${baseUrl}/sitemap-pages.xml`, lastModified: new Date() },
-    { url: `${baseUrl}/sitemap-wilayas.xml`, lastModified: new Date() },
-    { url: `${baseUrl}/sitemap-specialites.xml`, lastModified: new Date() },
-    { url: `${baseUrl}/sitemap-conseils.xml`, lastModified: new Date() },
-    { url: `${baseUrl}/sitemap-meilleurs.xml`, lastModified: new Date() },
-    { url: `${baseUrl}/api/sitemap-doctors/ar-1`, lastModified: new Date() },
+    { url: `${baseUrl}/sitemap-pages.xml`, lastModified },
+    { url: `${baseUrl}/sitemap-wilayas.xml`, lastModified },
+    { url: `${baseUrl}/sitemap-specialites.xml`, lastModified },
+    { url: `${baseUrl}/sitemap-conseils.xml`, lastModified },
+    { url: `${baseUrl}/sitemap-meilleurs.xml`, lastModified },
+    { url: `${baseUrl}/api/sitemap-doctors/ar-1`, lastModified },
 
     ...doctorSitemaps,
   ]

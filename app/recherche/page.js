@@ -32,7 +32,14 @@ export async function generateMetadata({ searchParams }) {
     title,
     description,
     alternates: { canonical: canonicalUrl },
-    robots: q ? { index: false, follow: true } : { index: true, follow: true },
+    // ✅ SEO : bloquer l'indexation de /recherche avec paramètres
+    // Pourquoi ? "/recherche?specialite=dentiste&wilaya=alger" montre le même contenu
+    // que "/specialites/dentiste/alger" qui est déjà indexée → duplicate content
+    // Google peut pénaliser les sites avec du contenu dupliqué.
+    // La page /recherche SANS paramètre reste indexée normalement.
+    robots: (q || specialite || wilaya)
+      ? { index: false, follow: true }
+      : { index: true, follow: true },
   }
 }
 
