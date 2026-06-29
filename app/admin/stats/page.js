@@ -236,6 +236,40 @@ export default function StatsDashboard() {
     setLoading(false)
   }
 
+  // Fonction d'exportation des données de la table sous format CSV
+  function exportCsv() {
+    if (rows.length === 0) return
+    
+    // En-têtes du fichier CSV
+    const headers = ['Nom', 'Specialite', 'Wilaya', 'Vues', 'Appels', 'WhatsApp', 'Carte', 'Taux de conversion']
+    
+    // Contenu des lignes
+    const csvRows = rows.map(r => [
+      `"${r.name.replace(/"/g, '""')}"`,
+      `"${r.specialty.replace(/"/g, '""')}"`,
+      `"${r.wilaya.replace(/"/g, '""')}"`,
+      r.views,
+      r.calls,
+      r.whatsapp,
+      r.maps,
+      `"${convRate(r.views, r.calls)}"`
+    ])
+    
+    // Jointure finale avec saut de ligne
+    const csvContent = [headers.join(','), ...csvRows.map(row => row.join(','))].join('\n')
+    
+    // Création du fichier téléchargeable
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', `stats_medecins_${period}_${new Date().toISOString().slice(0, 10)}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   // ── filtered + sorted rows ──────────────────────────────────────────────────
   const rows = useMemo(() => {
     let list = rawStats.map(r => ({
@@ -609,6 +643,15 @@ export default function StatsDashboard() {
                 <option value="whatsapp">↓ WhatsApp</option>
                 <option value="maps">↓ Carte</option>
               </select>
+
+              {/* Export CSV Button */}
+              <button
+                onClick={exportCsv}
+                disabled={rows.length === 0}
+                className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm px-3.5 py-2 rounded-xl font-medium transition disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <span>📥</span> Export CSV
+              </button>
             </div>
           </div>
 
