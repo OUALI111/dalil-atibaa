@@ -278,6 +278,34 @@ export default function StatsDashboard() {
   const totalInteractions = totals.calls + totals.whatsapp + totals.maps
   const globalConvRate = totals.views > 0 ? Math.round((totalInteractions / totals.views) * 100) : 0
 
+  // Top 5 Wilayas (triées par visites)
+  const topWilayas = useMemo(() => {
+    const counts = {}
+    rows.forEach(r => {
+      if (r.wilaya && r.wilaya !== '—') {
+        counts[r.wilaya] = (counts[r.wilaya] || 0) + r.views
+      }
+    })
+    return Object.entries(counts)
+      .map(([name, views]) => ({ name, views }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 5)
+  }, [rows])
+
+  // Top 5 Spécialités (triées par visites)
+  const topSpecialties = useMemo(() => {
+    const counts = {}
+    rows.forEach(r => {
+      if (r.specialty && r.specialty !== '—') {
+        counts[r.specialty] = (counts[r.specialty] || 0) + r.views
+      }
+    })
+    return Object.entries(counts)
+      .map(([name, views]) => ({ name, views }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 5)
+  }, [rows])
+
   if (!isAuth) return <LoginScreen onLogin={() => setIsAuth(true)} />
 
   return (
@@ -444,6 +472,65 @@ export default function StatsDashboard() {
               <div className="flex items-center justify-center h-36 text-gray-400 text-sm">
                 Pas assez de données pour afficher le graphique d'évolution quotidien
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top 5 Wilayas & Spécialités */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Top Wilayas */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span className="text-blue-500">📍</span> Top 5 Wilayas les plus visitées
+            </h2>
+            {topWilayas.length > 0 ? (
+              <div className="space-y-3">
+                {topWilayas.map((w, idx) => {
+                  const maxVal = topWilayas[0].views || 1;
+                  const pct = Math.round((w.views / maxVal) * 100);
+                  return (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-gray-700">{idx + 1}. {w.name}</span>
+                        <span className="font-semibold text-gray-900">{w.views} vues</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 py-4 text-center">Aucune donnée disponible</p>
+            )}
+          </div>
+
+          {/* Top Spécialités */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span className="text-indigo-500">🩺</span> Top 5 Spécialités les plus visitées
+            </h2>
+            {topSpecialties.length > 0 ? (
+              <div className="space-y-3">
+                {topSpecialties.map((s, idx) => {
+                  const maxVal = topSpecialties[0].views || 1;
+                  const pct = Math.round((s.views / maxVal) * 100);
+                  return (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-gray-700">{idx + 1}. {s.name}</span>
+                        <span className="font-semibold text-gray-900">{s.views} vues</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 py-4 text-center">Aucune donnée disponible</p>
             )}
           </div>
         </div>
