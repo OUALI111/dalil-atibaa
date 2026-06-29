@@ -171,6 +171,8 @@ export default function StatsDashboard() {
       let query = supabase
         .from('doctor_stats')
         .select('doctor_id, event_type, created_at')
+        .order('created_at', { ascending: false })
+        .limit(15000) // Augmente la limite pour éviter la troncature sur les longues périodes
       
       if (since) {
         if (until) {
@@ -184,7 +186,7 @@ export default function StatsDashboard() {
       if (error) throw error
 
       // 2. fetch doctors info for matching ids
-      const ids = [...new Set((stats || []).map(s => s.doctor_id))]
+      const ids = [...new Set((stats || []).map(s => s.doctor_id))].filter(Boolean)
       let doctorMap = {}
       if (ids.length > 0) {
         const { data: docs } = await supabase
@@ -272,14 +274,16 @@ export default function StatsDashboard() {
 
   // ── filtered + sorted rows ──────────────────────────────────────────────────
   const rows = useMemo(() => {
-    let list = rawStats.map(r => ({
-      ...r,
-      doctor: doctors[r.id],
-      name: doctors[r.id]?.name_fr || `#${r.id}`,
-      specialty: doctors[r.id]?.specialties?.name_fr || '—',
-      wilaya: doctors[r.id]?.wilayas?.name_fr || '—',
-      slug: doctors[r.id]?.slug || '',
-    }))
+    let list = rawStats
+      .filter(r => !!doctors[r.id]) // Exclut les médecins qui ont été supprimés de la base
+      .map(r => ({
+        ...r,
+        doctor: doctors[r.id],
+        name: doctors[r.id]?.name_fr || `#${r.id}`,
+        specialty: doctors[r.id]?.specialties?.name_fr || '—',
+        wilaya: doctors[r.id]?.wilayas?.name_fr || '—',
+        slug: doctors[r.id]?.slug || '',
+      }))
 
     if (search.trim()) {
       const q = search.toLowerCase()
