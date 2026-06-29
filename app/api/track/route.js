@@ -46,21 +46,25 @@ export async function POST(request) {
 
     // Si c'est une vue, incrémenter le compteur cumulé views_count dans la table doctors
     if (event_type === 'view') {
-      await supabase.rpc('increment_doctor_views', { doc_id: doctor_id })
-        .catch(() => {
-          // Fallback au cas où la fonction RPC n'est pas encore créée
-          supabase.from('doctors')
-            .select('views_count')
-            .eq('id', doctor_id)
-            .single()
-            .then(({ data }) => {
-              if (data) {
-                supabase.from('doctors')
-                  .update({ views_count: (data.views_count || 0) + 1 })
-                  .eq('id', doctor_id)
-                  .then(() => {});
-              }
-            });
+      supabase.rpc('increment_doctor_views', { doc_id: doctor_id })
+        .catch(() => {})
+        .then(({ error: rpcError }) => {
+          if (rpcError) {
+            // Fallback si la fonction RPC n'existe pas
+            supabase.from('doctors')
+              .select('views_count')
+              .eq('id', doctor_id)
+              .single()
+              .then(({ data }) => {
+                if (data && data.views_count !== undefined) {
+                  supabase.from('doctors')
+                    .update({ views_count: (data.views_count || 0) + 1 })
+                    .eq('id', doctor_id)
+                    .then(() => {});
+                }
+              })
+              .catch(() => {});
+          }
         });
     }
 

@@ -189,11 +189,22 @@ export default function StatsDashboard() {
       const ids = [...new Set((stats || []).map(s => s.doctor_id))].filter(Boolean)
       let doctorMap = {}
       if (ids.length > 0) {
-        const { data: docs } = await supabase
+        // Sélection tolérante : on tente avec views_count, si ça échoue on récupère sans cette colonne.
+        const { data: docs, error: docError } = await supabase
           .from('doctors')
           .select('id, name_fr, slug, views_count, specialties(name_fr), wilayas(name_fr)')
           .in('id', ids)
-        if (docs) {
+
+        if (docError) {
+          // Fallback si la colonne n'existe pas encore
+          const { data: fallbackDocs } = await supabase
+            .from('doctors')
+            .select('id, name_fr, slug, specialties(name_fr), wilayas(name_fr)')
+            .in('id', ids)
+          if (fallbackDocs) {
+            fallbackDocs.forEach(d => { doctorMap[d.id] = { ...d, views_count: 0 } })
+          }
+        } else if (docs) {
           docs.forEach(d => { doctorMap[d.id] = d })
         }
       }
