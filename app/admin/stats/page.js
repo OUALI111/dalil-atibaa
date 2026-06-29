@@ -191,7 +191,7 @@ export default function StatsDashboard() {
       if (ids.length > 0) {
         const { data: docs } = await supabase
           .from('doctors')
-          .select('id, name_fr, slug, specialties(name_fr), wilayas(name_fr)')
+          .select('id, name_fr, slug, views_count, specialties(name_fr), wilayas(name_fr)')
           .in('id', ids)
         if (docs) {
           docs.forEach(d => { doctorMap[d.id] = d })
@@ -283,6 +283,7 @@ export default function StatsDashboard() {
         specialty: doctors[r.id]?.specialties?.name_fr || '—',
         wilaya: doctors[r.id]?.wilayas?.name_fr || '—',
         slug: doctors[r.id]?.slug || '',
+        globalViews: doctors[r.id]?.views_count || 0,
       }))
 
     if (search.trim()) {
@@ -737,9 +738,14 @@ export default function StatsDashboard() {
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell">{r.wilaya}</td>
                           <td className="px-3 py-4 text-right">
-                            <span className={`font-bold text-sm ${sortBy === 'views' ? 'text-blue-600' : 'text-gray-800'}`}>
-                              {fmtNum(r.views)}
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span className={`font-bold text-sm ${sortBy === 'views' ? 'text-blue-600' : 'text-gray-800'}`}>
+                                {fmtNum(r.views)}
+                              </span>
+                              <span className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded-sm mt-0.5" title="Total cumulé historique">
+                                Cumul: {fmtNum(r.globalViews)}
+                              </span>
+                            </div>
                             <MiniBar value={r.views} max={maxViews} color="bg-blue-400" />
                           </td>
                           <td className="px-3 py-4 text-right">

@@ -44,6 +44,26 @@ export async function POST(request) {
       return Response.json({ error: error.message }, { status: 500 })
     }
 
+    // Si c'est une vue, incrémenter le compteur cumulé views_count dans la table doctors
+    if (event_type === 'view') {
+      await supabase.rpc('increment_doctor_views', { doc_id: doctor_id })
+        .catch(() => {
+          // Fallback au cas où la fonction RPC n'est pas encore créée
+          supabase.from('doctors')
+            .select('views_count')
+            .eq('id', doctor_id)
+            .single()
+            .then(({ data }) => {
+              if (data) {
+                supabase.from('doctors')
+                  .update({ views_count: (data.views_count || 0) + 1 })
+                  .eq('id', doctor_id)
+                  .then(() => {});
+              }
+            });
+        });
+    }
+
     return Response.json({ success: true })
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 })
