@@ -15,7 +15,18 @@ const supabase = createClient(
 function getPeriodRange(period) {
   const now = new Date()
   const start = new Date(now)
+  
+  if (period === 'today') {
+    start.setHours(0, 0, 0, 0)
+    return start.toISOString()
+  }
+  if (period === 'yesterday') {
+    start.setDate(now.getDate() - 1)
+    start.setHours(0, 0, 0, 0)
+    return start.toISOString()
+  }
   if (period === '7d')  start.setDate(now.getDate() - 7)
+  if (period === '15d') start.setDate(now.getDate() - 15)
   if (period === '30d') start.setDate(now.getDate() - 30)
   if (period === '90d') start.setDate(now.getDate() - 90)
   if (period === 'all') return null
@@ -35,7 +46,7 @@ function convRate(views, calls) {
 // ─── StatCard ────────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, color, sub }) {
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4`}>
+    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4 transition hover:shadow-md`}>
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 ${color}`}>
         {icon}
       </div>
@@ -389,99 +400,152 @@ export default function StatsDashboard() {
               <p className="text-sm mt-1">Les visites s'enregistreront automatiquement</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                    <th className="text-left px-5 py-3 font-semibold">#</th>
-                    <th className="text-left px-3 py-3 font-semibold">Médecin</th>
-                    <th className="text-left px-3 py-3 font-semibold hidden md:table-cell">Spécialité</th>
-                    <th className="text-left px-3 py-3 font-semibold hidden lg:table-cell">Wilaya</th>
-                    <th className="text-right px-3 py-3 font-semibold">
-                      <button onClick={() => setSortBy('views')} className={`hover:text-blue-600 transition ${sortBy === 'views' ? 'text-blue-600' : ''}`}>
-                        👁 Vues
-                      </button>
-                    </th>
-                    <th className="text-right px-3 py-3 font-semibold">
-                      <button onClick={() => setSortBy('calls')} className={`hover:text-green-600 transition ${sortBy === 'calls' ? 'text-green-600' : ''}`}>
-                        📞 Appels
-                      </button>
-                    </th>
-                    <th className="text-right px-3 py-3 font-semibold hidden sm:table-cell">
-                      <button onClick={() => setSortBy('whatsapp')} className={`hover:text-emerald-600 transition ${sortBy === 'whatsapp' ? 'text-emerald-600' : ''}`}>
-                        💬 WA
-                      </button>
-                    </th>
-                    <th className="text-right px-3 py-3 font-semibold hidden sm:table-cell">
-                      <button onClick={() => setSortBy('maps')} className={`hover:text-orange-600 transition ${sortBy === 'maps' ? 'text-orange-600' : ''}`}>
-                        🗺 Carte
-                      </button>
-                    </th>
-                    <th className="text-right px-5 py-3 font-semibold">Taux</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {rows.map((r, i) => (
-                    <tr key={r.id} className="hover:bg-blue-50/40 transition group">
-                      <td className="px-5 py-4 text-sm text-gray-400 font-medium">{i + 1}</td>
-                      <td className="px-3 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                            {r.name.charAt(0)}
-                          </div>
-                          <div className="min-w-0">
-                            <a
-                              href={`/docteur/${r.slug}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition truncate block max-w-[160px]"
-                            >
-                              {r.name}
-                            </a>
-                            <p className="text-xs text-gray-400 md:hidden">{r.specialty}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-4 hidden md:table-cell">
-                        <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-100 font-medium">
-                          {r.specialty}
-                        </span>
-                      </td>
-                      <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell">{r.wilaya}</td>
-                      <td className="px-3 py-4 text-right">
-                        <span className={`font-bold text-sm ${sortBy === 'views' ? 'text-blue-600' : 'text-gray-800'}`}>
-                          {fmtNum(r.views)}
-                        </span>
-                        <MiniBar value={r.views} max={maxViews} color="bg-blue-400" />
-                      </td>
-                      <td className="px-3 py-4 text-right">
-                        <span className={`font-bold text-sm ${sortBy === 'calls' ? 'text-green-600' : 'text-gray-800'}`}>
-                          {fmtNum(r.calls)}
-                        </span>
-                        <MiniBar value={r.calls} max={maxCalls} color="bg-green-400" />
-                      </td>
-                      <td className="px-3 py-4 text-right text-sm font-semibold text-gray-700 hidden sm:table-cell">
-                        {fmtNum(r.whatsapp)}
-                      </td>
-                      <td className="px-3 py-4 text-right text-sm font-semibold text-gray-700 hidden sm:table-cell">
-                        {fmtNum(r.maps)}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <span className={`text-sm font-bold px-2 py-0.5 rounded-lg ${
-                          Number(convRate(r.views, r.calls).replace('%','')) >= 20
-                            ? 'bg-green-100 text-green-700'
-                            : Number(convRate(r.views, r.calls).replace('%','')) >= 10
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {convRate(r.views, r.calls)}
-                        </span>
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                      <th className="text-left px-5 py-3 font-semibold">#</th>
+                      <th className="text-left px-3 py-3 font-semibold">Médecin</th>
+                      <th className="text-left px-3 py-3 font-semibold hidden md:table-cell">Spécialité</th>
+                      <th className="text-left px-3 py-3 font-semibold hidden lg:table-cell">Wilaya</th>
+                      <th className="text-right px-3 py-3 font-semibold">
+                        <button onClick={() => setSortBy('views')} className={`hover:text-blue-600 transition ${sortBy === 'views' ? 'text-blue-600' : ''}`}>
+                          👁 Vues
+                        </button>
+                      </th>
+                      <th className="text-right px-3 py-3 font-semibold">
+                        <button onClick={() => setSortBy('calls')} className={`hover:text-green-600 transition ${sortBy === 'calls' ? 'text-green-600' : ''}`}>
+                          📞 Appels
+                        </button>
+                      </th>
+                      <th className="text-right px-3 py-3 font-semibold hidden sm:table-cell">
+                        <button onClick={() => setSortBy('whatsapp')} className={`hover:text-emerald-600 transition ${sortBy === 'whatsapp' ? 'text-emerald-600' : ''}`}>
+                          💬 WA
+                        </button>
+                      </th>
+                      <th className="text-right px-3 py-3 font-semibold hidden sm:table-cell">
+                        <button onClick={() => setSortBy('maps')} className={`hover:text-orange-600 transition ${sortBy === 'maps' ? 'text-orange-600' : ''}`}>
+                          🗺 Carte
+                        </button>
+                      </th>
+                      <th className="text-right px-5 py-3 font-semibold">Taux</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {paginatedRows.map((r, i) => {
+                      const rankIndex = (currentPage - 1) * pageSize + i + 1;
+                      return (
+                        <tr key={r.id} className="hover:bg-blue-50/40 transition group">
+                          <td className="px-5 py-4 text-sm text-gray-400 font-medium">{rankIndex}</td>
+                          <td className="px-3 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                {r.name.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <a
+                                  href={`/docteur/${r.slug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition truncate block max-w-[160px]"
+                                >
+                                  {r.name}
+                                </a>
+                                <p className="text-xs text-gray-400 md:hidden">{r.specialty}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 hidden md:table-cell">
+                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-100 font-medium">
+                              {r.specialty}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell">{r.wilaya}</td>
+                          <td className="px-3 py-4 text-right">
+                            <span className={`font-bold text-sm ${sortBy === 'views' ? 'text-blue-600' : 'text-gray-800'}`}>
+                              {fmtNum(r.views)}
+                            </span>
+                            <MiniBar value={r.views} max={maxViews} color="bg-blue-400" />
+                          </td>
+                          <td className="px-3 py-4 text-right">
+                            <span className={`font-bold text-sm ${sortBy === 'calls' ? 'text-green-600' : 'text-gray-800'}`}>
+                              {fmtNum(r.calls)}
+                            </span>
+                            <MiniBar value={r.calls} max={maxCalls} color="bg-green-400" />
+                          </td>
+                          <td className="px-3 py-4 text-right text-sm font-semibold text-gray-700 hidden sm:table-cell">
+                            {fmtNum(r.whatsapp)}
+                          </td>
+                          <td className="px-3 py-4 text-right text-sm font-semibold text-gray-700 hidden sm:table-cell">
+                            {fmtNum(r.maps)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <span className={`text-sm font-bold px-2 py-0.5 rounded-lg ${
+                              Number(convRate(r.views, r.calls).replace('%','')) >= 20
+                                ? 'bg-green-100 text-green-700'
+                                : Number(convRate(r.views, r.calls).replace('%','')) >= 10
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {convRate(r.views, r.calls)}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINATION NAVIGATION */}
+              {totalPages > 1 && (
+                <div className="p-5 border-t border-gray-50 flex items-center justify-between flex-wrap gap-3 bg-gray-50/50">
+                  <span className="text-sm text-gray-500">
+                    Affichage de <b>{(currentPage - 1) * pageSize + 1}</b> à <b>{Math.min(currentPage * pageSize, rows.length)}</b> sur <b>{rows.length}</b> médecins
+                  </span>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      ← Précédent
+                    </button>
+                    
+                    {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                      .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                      .map((p, i, arr) => {
+                        const showEllipsis = i > 0 && p - arr[i - 1] > 1;
+                        return (
+                          <div key={p} className="flex items-center gap-1">
+                            {showEllipsis && <span className="text-gray-400 text-sm px-1">...</span>}
+                            <button
+                              onClick={() => setCurrentPage(p)}
+                              className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${
+                                currentPage === p
+                                  ? 'bg-blue-600 text-white shadow-sm'
+                                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          </div>
+                        )
+                      })}
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      Suivant →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
