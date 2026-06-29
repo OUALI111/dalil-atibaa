@@ -134,22 +134,51 @@ export default function StatsDashboard() {
   const [totals, setTotals] = useState({ views: 0, calls: 0, whatsapp: 0, maps: 0 })
   const [chartData, setChartData] = useState([])
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isAuth) return
     fetchData()
   }, [isAuth, period])
 
+  // Réinitialiser la page courante lors du changement des filtres ou de recherche
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, sortBy, period])
+
   async function fetchData() {
     setLoading(true)
     try {
-      const since = getPeriodRange(period)
+      let since = getPeriodRange(period)
+      let until = null
+
+      if (period === 'yesterday') {
+        const startOfYesterday = new Date()
+        startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+        startOfYesterday.setHours(0,0,0,0)
+        since = startOfYesterday.toISOString()
+
+        const endOfYesterday = new Date()
+        endOfYesterday.setDate(endOfYesterday.getDate() - 1)
+        endOfYesterday.setHours(23,59,59,999)
+        until = endOfYesterday.toISOString()
+      }
 
       // 1. fetch all stats in one query
       let query = supabase
         .from('doctor_stats')
         .select('doctor_id, event_type, created_at')
-      if (since) query = query.gte('created_at', since)
+      
+      if (since) {
+        if (until) {
+          query = query.gte('created_at', since).lte('created_at', until)
+        } else {
+          query = query.gte('created_at', since)
+        }
+      }
 
       const { data: stats, error } = await query
       if (error) throw error
@@ -231,11 +260,23 @@ export default function StatsDashboard() {
     return list
   }, [rawStats, doctors, search, sortBy])
 
+  // Pagination Logic
+  const paginatedRows = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    return rows.slice(startIndex, startIndex + pageSize)
+  }, [rows, currentPage, pageSize])
+
+  const totalPages = Math.ceil(rows.length / pageSize)
+
   const maxViews = useMemo(() => Math.max(...rows.map(r => r.views), 1), [rows])
   const maxCalls = useMemo(() => Math.max(...rows.map(r => r.calls), 1), [rows])
 
   // ── chart max ────────────────────────────────────────────────────────────────
   const chartMax = useMemo(() => Math.max(...chartData.map(d => d.views), 1), [chartData])
+
+  // Conversion Globale
+  const totalInteractions = totals.calls + totals.whatsapp + totals.maps
+  const globalConvRate = totals.views > 0 ? Math.round((totalInteractions / totals.views) * 100) : 0
 
   if (!isAuth) return <LoginScreen onLogin={() => setIsAuth(true)} />
 
@@ -257,8 +298,16 @@ export default function StatsDashboard() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* Period selector */}
-            <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
-              {[['7d','7 jours'],['30d','30 jours'],['90d','3 mois'],['all','Tout']].map(([v, l]) => (
+            <div className="flex bg-gray-100 rounded-xl p-1 gap-1 flex-wrap">
+              {[
+                ['today', "Aujourd'hui"],
+                ['yesterday', 'Hier'],
+                ['7d', '7 jours'],
+                ['15d', '15 jours'],
+                ['30d', '1 mois'],
+                ['90d', '3 mois'],
+                ['all', 'Tout']
+              ].map(([v, l]) => (
                 <button
                   key={v}
                   onClick={() => setPeriod(v)}
@@ -292,7 +341,17 @@ export default function StatsDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard icon="👁" label="Visites" value={fmtNum(totals.views)}
             color="bg-blue-50 text-blue-600"
-            sub={period === 'all' ? 'Toutes périodes' : `Ces ${period === '7d' ? '7' : period === '30d' ? '30' : '90'} derniers jours`}
+            sub={
+              period === 'all' 
+                ? 'Toutes périodes' 
+                : period === 'today'
+                ? "Aujourd'hui"
+                : period === 'yesterday'
+                ? 'Hier'
+                : period === '15d'
+                ? 'Ces 15 derniers jours'
+                : `Ces ${period === '7d' ? '7' : period === '30d' ? '30' : '90'} derniers jours`
+            }
           />
           <StatCard icon="📞" label="Clics Appel" value={fmtNum(totals.calls)}
             color="bg-green-50 text-green-600"
@@ -308,44 +367,110 @@ export default function StatsDashboard() {
           />
         </div>
 
-        {/* Chart */}
-        {chartData.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        {/* Performance & Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Card Performance */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-1 flex flex-col justify-between">
+            <div>
+              <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <span className="text-yellow-500">⚡</span> Performance Globale
+              </h2>
+              <p className="text-sm text-gray-500 mb-4">Ratio total des interactions (Appel, WhatsApp, Map) par rapport aux visites uniques.</p>
+              
+              <div className="flex items-center justify-center py-6">
+                <div className="relative flex items-center justify-center">
+                  <svg className="w-32 h-32 transform -rotate-90">
+                    <circle cx="64" cy="64" r="54" stroke="#f3f4f6" strokeWidth="10" fill="transparent" />
+                    <circle cx="64" cy="64" r="54" stroke="#3b82f6" strokeWidth="10" fill="transparent" 
+                      strokeDasharray={339.3}
+                      strokeDashoffset={339.3 - (339.3 * Math.min(globalConvRate, 100)) / 100}
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute text-center">
+                    <span className="text-3xl font-extrabold text-gray-900">{globalConvRate}%</span>
+                    <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Conversion</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border-t border-gray-50 pt-4 mt-2">
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Total visites : <b>{totals.views}</b></span>
+                <span>Interactions : <b>{totalInteractions}</b></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Chart */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
             <h2 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
               <span className="text-blue-600">📈</span>
               Évolution des visites (14 derniers jours)
             </h2>
-            <div className="flex items-end gap-2 h-32 overflow-x-auto pb-2">
-              {chartData.map((d, i) => (
-                <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-[28px]">
-                  <div className="w-full flex flex-col items-center justify-end h-24 gap-0.5">
-                    {/* calls bar */}
-                    <div
-                      className="w-full rounded-sm bg-green-400 transition-all duration-500"
-                      style={{ height: `${Math.max(chartMax ? (d.calls / chartMax) * 60 : 0, d.calls > 0 ? 4 : 0)}px` }}
-                      title={`${d.calls} appels`}
-                    />
-                    {/* views bar */}
-                    <div
-                      className="w-full rounded-sm bg-blue-500 transition-all duration-500"
-                      style={{ height: `${Math.max(chartMax ? (d.views / chartMax) * 60 : 0, d.views > 0 ? 4 : 0)}px` }}
-                      title={`${d.views} vues`}
-                    />
-                  </div>
-                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{d.day}</span>
+            {chartData.length > 0 ? (
+              <>
+                <div className="flex items-end gap-2 h-36 overflow-x-auto pb-2">
+                  {chartData.map((d, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-[28px]">
+                      <div className="w-full flex flex-col items-center justify-end h-24 gap-0.5">
+                        <div
+                          className="w-full rounded-sm bg-green-400 transition-all duration-500"
+                          style={{ height: `${Math.max(chartMax ? (d.calls / chartMax) * 60 : 0, d.calls > 0 ? 4 : 0)}px` }}
+                          title={`${d.calls} appels`}
+                        />
+                        <div
+                          className="w-full rounded-sm bg-blue-500 transition-all duration-500"
+                          style={{ height: `${Math.max(chartMax ? (d.views / chartMax) * 60 : 0, d.views > 0 ? 4 : 0)}px` }}
+                          title={`${d.views} vues`}
+                        />
+                      </div>
+                      <span className="text-[10px] text-gray-400 whitespace-nowrap">{d.day}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <div className="w-3 h-3 rounded-sm bg-blue-500" /> Visites
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <div className="w-3 h-3 rounded-sm bg-blue-500" /> Visites
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <div className="w-3 h-3 rounded-sm bg-green-400" /> Appels
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-36 text-gray-400 text-sm">
+                Pas assez de données pour afficher le graphique d'évolution quotidien
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <div className="w-3 h-3 rounded-sm bg-green-400" /> Appels
-              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SUGGESTIONS D'AMÉLIORATION DU DASHBOARD */}
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-md">
+          <div className="flex items-start gap-4">
+            <span className="text-3xl">💡</span>
+            <div>
+              <h3 className="font-bold text-lg">Suggestions pour aller plus loin avec votre Dashboard :</h3>
+              <ul className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-100">
+                <li className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
+                  <b className="text-white block mb-1">🗺 Top 5 Wilayas & Spécialités</b>
+                  Découvrez instantanément quelles régions et quels types de médecins génèrent le plus d'activité.
+                </li>
+                <li className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
+                  <b className="text-white block mb-1">📥 Export CSV / Excel</b>
+                  Téléchargez la liste filtrée des statistiques en un clic pour vos rapports personnels.
+                </li>
+                <li className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
+                  <b className="text-white block mb-1">🤖 Détecteur de Bots (Spider)</b>
+                  Filtrez les faux clics générés par les robots d'indexation pour des données 100% réelles.
+                </li>
+              </ul>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -359,6 +484,21 @@ export default function StatsDashboard() {
               )}
             </h2>
             <div className="flex items-center gap-3 flex-wrap">
+              {/* Page size selector */}
+              <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                <span>Afficher</span>
+                <select
+                  value={pageSize}
+                  onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                  className="border border-gray-200 rounded-xl text-sm px-2 py-1.5 focus:outline-none focus:border-blue-400 text-gray-700 font-medium"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+
               {/* Search */}
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
