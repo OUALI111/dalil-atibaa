@@ -184,27 +184,36 @@ export default function StatsDashboard() {
       if (period === 'all') {
         // ════════════════════════════════════════════════════════════════════
         // MODE "TOUT" : lecture des compteurs agrégés count_* depuis doctors
-        // → 100% exact, jamais limité, scalable à l'infini
+        // Filtre côté serveur (actifs seulement) + pagination pour dépasser
+        // la limite 1000 de Supabase (6684 médecins dans la DB, 1887 actifs)
         // ════════════════════════════════════════════════════════════════════
-        const { data: allDocs, error: docsError } = await supabase
-          .from('doctors')
-          .select('id, name_fr, slug, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
-        if (docsError) throw docsError
+        const activeDocs = []
+        let fromDocs = 0
+        const batchDocs = 1000
+        let fetchedDocs = 0
+        do {
+          const { data: batch, error: batchErr } = await supabase
+            .from('doctors')
+            .select('id, name_fr, slug, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
+            .or('count_views.gt.0,count_calls.gt.0,count_whatsapp.gt.0,count_maps.gt.0')
+            .range(fromDocs, fromDocs + batchDocs - 1)
+          if (batchErr) break
+          fetchedDocs = (batch || []).length
+          activeDocs.push(...(batch || []))
+          fromDocs += batchDocs
+        } while (fetchedDocs === batchDocs)
 
         const doctorMap = {}
-        ;(allDocs || []).forEach(d => { doctorMap[d.id] = d })
+        activeDocs.forEach(d => { doctorMap[d.id] = d })
         setDoctors(doctorMap)
 
-        // Médecins ayant eu au moins 1 interaction
-        const rawStatsData = (allDocs || [])
-          .filter(d => (d.count_views || 0) + (d.count_calls || 0) + (d.count_whatsapp || 0) + (d.count_maps || 0) > 0)
-          .map(d => ({
-            id: d.id,
-            views:    d.count_views    || 0,
-            calls:    d.count_calls    || 0,
-            whatsapp: d.count_whatsapp || 0,
-            maps:     d.count_maps     || 0,
-          }))
+        const rawStatsData = activeDocs.map(d => ({
+          id: d.id,
+          views:    d.count_views    || 0,
+          calls:    d.count_calls    || 0,
+          whatsapp: d.count_whatsapp || 0,
+          maps:     d.count_maps     || 0,
+        }))
         setRawStats(rawStatsData)
 
         // Totaux globaux
