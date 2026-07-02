@@ -149,31 +149,17 @@ export default function StatsDashboard() {
     setCurrentPage(1)
   }, [search, sortBy, period])
 
-  async function fetchData() {
-    setLoading(true)
-    try {
-      let since = getPeriodRange(period)
-      let until = null
-
-      if (period === 'yesterday') {
-        const startOfYesterday = new Date()
-        startOfYesterday.setDate(startOfYesterday.getDate() - 1)
-        startOfYesterday.setHours(0,0,0,0)
-        since = startOfYesterday.toISOString()
-
-        const endOfYesterday = new Date()
-        endOfYesterday.setDate(endOfYesterday.getDate() - 1)
-        endOfYesterday.setHours(23,59,59,999)
-        until = endOfYesterday.toISOString()
-      }
-
-      // 1. fetch all stats in one query
+  // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
+  async function fetchStatsWithPagination(since, until) {
+    const allStats = []
+    let from = 0
+    const batchSize = 1000
+    let fetched = 0
+    do {
       let query = supabase
         .from('doctor_stats')
         .select('doctor_id, event_type, created_at')
-        .order('created_at', { ascending: false })
-        .limit(15000) // Augmente la limite pour éviter la troncature sur les longues périodes
-      
+        .range(from, from + batchSize - 1)
       if (since) {
         if (until) {
           query = query.gte('created_at', since).lte('created_at', until)
@@ -181,67 +167,124 @@ export default function StatsDashboard() {
           query = query.gte('created_at', since)
         }
       }
+      const { data, error } = await query
+      if (error) break
+      fetched = (data || []).length
+      allStats.push(...(data || []))
+      from += batchSize
+    } while (fetched === batchSize)
+    return allStats
+  }
 
-      const { data: stats, error } = await query
-      if (error) throw error
+  // ── fetch data ──────────────────────────────────────────────────────────────
+  async function fetchData() {
+    setLoading(true)
+    try {
 
-      // 2. fetch doctors info for matching ids
-      const ids = [...new Set((stats || []).map(s => s.doctor_id))].filter(Boolean)
-      let doctorMap = {}
-      if (ids.length > 0) {
-        // Sélection tolérante : on tente avec views_count, si ça échoue on récupère sans cette colonne.
-        const { data: docs, error: docError } = await supabase
+      if (period === 'all') {
+        // ════════════════════════════════════════════════════════════════════
+        // MODE "TOUT" : lecture des compteurs agrégés count_* depuis doctors
+        // → 100% exact, jamais limité, scalable à l'infini
+        // ════════════════════════════════════════════════════════════════════
+        const { data: allDocs, error: docsError } = await supabase
           .from('doctors')
-          .select('id, name_fr, slug, views_count, specialties(name_fr), wilayas(name_fr)')
-          .in('id', ids)
+          .select('id, name_fr, slug, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
+        if (docsError) throw docsError
 
-        if (docError) {
-          // Fallback si la colonne n'existe pas encore
-          const { data: fallbackDocs } = await supabase
+        const doctorMap = {}
+        ;(allDocs || []).forEach(d => { doctorMap[d.id] = d })
+        setDoctors(doctorMap)
+
+        // Médecins ayant eu au moins 1 interaction
+        const rawStatsData = (allDocs || [])
+          .filter(d => (d.count_views || 0) + (d.count_calls || 0) + (d.count_whatsapp || 0) + (d.count_maps || 0) > 0)
+          .map(d => ({
+            id: d.id,
+            views:    d.count_views    || 0,
+            calls:    d.count_calls    || 0,
+            whatsapp: d.count_whatsapp || 0,
+            maps:     d.count_maps     || 0,
+          }))
+        setRawStats(rawStatsData)
+
+        // Totaux globaux
+        setTotals({
+          views:    rawStatsData.reduce((s, r) => s + r.views, 0),
+          calls:    rawStatsData.reduce((s, r) => s + r.calls, 0),
+          whatsapp: rawStatsData.reduce((s, r) => s + r.whatsapp, 0),
+          maps:     rawStatsData.reduce((s, r) => s + r.maps, 0),
+        })
+
+        // Graphique : événements récents dans doctor_stats (nouvelles visites non encore rollupées)
+        const recentStats = await fetchStatsWithPagination(null, null)
+        const dailyCounts = {}
+        for (const s of recentStats) {
+          const day = s.created_at.slice(0, 10)
+          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0 }
+          if (s.event_type === 'view')       dailyCounts[day].views++
+          if (s.event_type === 'call_click') dailyCounts[day].calls++
+        }
+        const days = Object.keys(dailyCounts).sort().slice(-14)
+        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls })))
+
+      } else {
+        // ════════════════════════════════════════════════════════════════════
+        // MODE PÉRIODE SPÉCIFIQUE : lecture complète de doctor_stats avec pagination
+        // → lit toutes les lignes par boucles de 1000, sans jamais perdre de données
+        // ════════════════════════════════════════════════════════════════════
+        let since = getPeriodRange(period)
+        let until = null
+
+        if (period === 'yesterday') {
+          const startOfYesterday = new Date()
+          startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+          startOfYesterday.setHours(0, 0, 0, 0)
+          since = startOfYesterday.toISOString()
+          const endOfYesterday = new Date()
+          endOfYesterday.setDate(endOfYesterday.getDate() - 1)
+          endOfYesterday.setHours(23, 59, 59, 999)
+          until = endOfYesterday.toISOString()
+        }
+
+        const stats = await fetchStatsWithPagination(since, until)
+
+        // Récupère les infos médecins pour les IDs trouvés
+        const ids = [...new Set(stats.map(s => s.doctor_id))].filter(Boolean)
+        let doctorMap = {}
+        if (ids.length > 0) {
+          const { data: docs } = await supabase
             .from('doctors')
-            .select('id, name_fr, slug, specialties(name_fr), wilayas(name_fr)')
+            .select('id, name_fr, slug, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
             .in('id', ids)
-          if (fallbackDocs) {
-            fallbackDocs.forEach(d => { doctorMap[d.id] = { ...d, views_count: 0 } })
-          }
-        } else if (docs) {
-          docs.forEach(d => { doctorMap[d.id] = d })
+          ;(docs || []).forEach(d => { doctorMap[d.id] = d })
         }
-      }
-      setDoctors(doctorMap)
+        setDoctors(doctorMap)
 
-      // 3. aggregate per doctor
-      const agg = {}
-      const dailyCounts = {}
-
-      for (const s of (stats || [])) {
-        if (!agg[s.doctor_id]) {
-          agg[s.doctor_id] = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
+        // Agrège par médecin
+        const agg = {}
+        const dailyCounts = {}
+        for (const s of stats) {
+          if (!agg[s.doctor_id]) agg[s.doctor_id] = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
+          if (s.event_type === 'view')           agg[s.doctor_id].views++
+          if (s.event_type === 'call_click')     agg[s.doctor_id].calls++
+          if (s.event_type === 'whatsapp_click') agg[s.doctor_id].whatsapp++
+          if (s.event_type === 'map_click')      agg[s.doctor_id].maps++
+          const day = s.created_at.slice(0, 10)
+          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0 }
+          if (s.event_type === 'view')       dailyCounts[day].views++
+          if (s.event_type === 'call_click') dailyCounts[day].calls++
         }
-        if (s.event_type === 'view')            agg[s.doctor_id].views++
-        if (s.event_type === 'call_click')      agg[s.doctor_id].calls++
-        if (s.event_type === 'whatsapp_click')  agg[s.doctor_id].whatsapp++
-        if (s.event_type === 'map_click')       agg[s.doctor_id].maps++
 
-        // daily chart
-        const day = s.created_at.slice(0, 10)
-        if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0 }
-        if (s.event_type === 'view')       dailyCounts[day].views++
-        if (s.event_type === 'call_click') dailyCounts[day].calls++
+        setRawStats(Object.entries(agg).map(([id, v]) => ({ id: Number(id), ...v })))
+        setTotals({
+          views:    Object.values(agg).reduce((s, r) => s + r.views, 0),
+          calls:    Object.values(agg).reduce((s, r) => s + r.calls, 0),
+          whatsapp: Object.values(agg).reduce((s, r) => s + r.whatsapp, 0),
+          maps:     Object.values(agg).reduce((s, r) => s + r.maps, 0),
+        })
+        const days = Object.keys(dailyCounts).sort().slice(-14)
+        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls })))
       }
-
-      setRawStats(Object.entries(agg).map(([id, v]) => ({ id: Number(id), ...v })))
-
-      // 4. totals
-      const tv = (stats || []).filter(s => s.event_type === 'view').length
-      const tc = (stats || []).filter(s => s.event_type === 'call_click').length
-      const tw = (stats || []).filter(s => s.event_type === 'whatsapp_click').length
-      const tm = (stats || []).filter(s => s.event_type === 'map_click').length
-      setTotals({ views: tv, calls: tc, whatsapp: tw, maps: tm })
-
-      // 5. chart — last 14 days sorted
-      const days = Object.keys(dailyCounts).sort().slice(-14)
-      setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls })))
 
     } catch (e) {
       console.error(e)
@@ -294,7 +337,7 @@ export default function StatsDashboard() {
         specialty: doctors[r.id]?.specialties?.name_fr || '—',
         wilaya: doctors[r.id]?.wilayas?.name_fr || '—',
         slug: doctors[r.id]?.slug || '',
-        globalViews: doctors[r.id]?.views_count || 0,
+        globalViews: doctors[r.id]?.count_views || 0,
       }))
 
     if (search.trim()) {
