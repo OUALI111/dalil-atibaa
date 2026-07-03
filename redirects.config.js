@@ -23,13 +23,8 @@ const redirectsList = [
     permanent: true,
   },
   // ══════════════════════════════
-  // Sitemap doctors — 302 temporaire
+  // Sitemap doctors → géré par rewrite dans next.config.ts (réponse 200 directe)
   // ══════════════════════════════
-  {
-    source: '/sitemap-doctors-:page.xml',
-    destination: '/api/sitemap-doctors/:page',
-    permanent: false,
-  },
   // ══════════════════════════════
   // Anciennes URLs — ajoute ici
   // ══════════════════════════════
