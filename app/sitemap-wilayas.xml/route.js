@@ -1,6 +1,13 @@
 import { supabase } from '../../lib/supabase'
 
-export const dynamic = 'force-dynamic'
+// ✅ Revalidation toutes les 24h au lieu de force-dynamic
+// Les wilayas d'Algérie ne changent jamais → inutile de recalculer
+// ce sitemap à chaque visite de Google. 1 fois par jour suffit largement.
+export const revalidate = 86400
+
+// ✅ Date fixe et stable : Google ne pense plus que les pages wilayas
+// changent à chaque seconde → économie du budget de crawl
+const LAST_MODIFIED = '2026-06-01T00:00:00.000Z'
 
 export async function GET() {
   const baseUrl = 'https://www.dalil-atibaa.com'
@@ -14,13 +21,16 @@ export async function GET() {
 ${wilayas?.map(w => `
   <url>
     <loc>${baseUrl}/wilayas/${w.slug}</loc>
-    <changefreq>weekly</changefreq>
+    <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <lastmod>${new Date().toISOString()}</lastmod>
+    <lastmod>${LAST_MODIFIED}</lastmod>
   </url>`).join('') || ''}
 </urlset>`
 
   return new Response(xml, {
-    headers: { 'Content-Type': 'application/xml' }
+    headers: {
+      'Content-Type': 'application/xml',
+      'Cache-Control': 'public, max-age=86400',
+    }
   })
 }
