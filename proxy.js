@@ -21,15 +21,27 @@ const OLD_SLUG_PATTERN = /-\d+$/
 export async function proxy(request) {
   const pathname = request.nextUrl.pathname
 
+  // ✅ SEO — Injection du pathname dans les headers HTTP
+  // Le RootLayout (app/layout.js) lit ce header via headers() pour savoir
+  // si la page est arabe (/ar/*) ou française, et adapte lang="ar" ou lang="fr"
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', pathname)
+
+  // ─── Logique de redirection des anciens slugs docteurs ───────────────────
   if (!pathname.startsWith('/docteur/')) {
-    return NextResponse.next()
+    // Pas une page docteur : on injecte juste le header et on continue
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    })
   }
 
   const oldSlug = pathname.replace('/docteur/', '')
 
   // ✅ COURT-CIRCUIT : slug valide (nouveau format) → 0 requête SQL, 0 CPU
   if (!OLD_SLUG_PATTERN.test(oldSlug)) {
-    return NextResponse.next()
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    })
   }
 
   // À partir d'ici : slug suspect (ancien format -NOMBRE) → vérifier la redirection
@@ -44,7 +56,7 @@ export async function proxy(request) {
     .eq('old_slug', oldSlug)
     .single()
 
-  if (!redirect) return NextResponse.next()
+  if (!redirect) return NextResponse.next({ request: { headers: requestHeaders } })
 
   if (redirect.new_slug) {
     return NextResponse.redirect(
@@ -67,9 +79,11 @@ export async function proxy(request) {
     )
   }
 
-  return NextResponse.next()
+  return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 export const config = {
-  matcher: '/docteur/:path*',
+  // ✅ Étendu à TOUTES les routes (sauf fichiers statiques Next.js)
+  // pour que x-pathname soit injecté sur chaque page, pas seulement /docteur/
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|.*\\.webp$).*)'],
 }
