@@ -22,7 +22,7 @@ export default async function ConseillsPage() {
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Dalil Atibaa" className="h-9 w-auto" />
+            <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/ar/conseils" className="hidden sm:block text-sm text-gray-600 hover:text-blue-600 transition">

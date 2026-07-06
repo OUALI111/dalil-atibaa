@@ -166,7 +166,7 @@ if (!doctor) {
       <header className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/">
-  <img src="/logo.svg" alt="Dalil Atibaa" style={{height:'36px', width:'auto'}} />
+  <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" style={{height:'36px', width:'auto'}} />
 </Link>
           <div className="flex items-center gap-2">
             <Link href={`/ar/docteur/${slug}`}

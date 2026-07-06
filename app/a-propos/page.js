@@ -14,7 +14,7 @@ export default function AboutPage() {
       <header style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '64px' }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-            <img src="/logo.svg" alt="Dalil Atibaa" className="h-9 w-auto" />
+            <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
           </Link>
           <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', color: '#64748b' }}>
             <Link href="/" style={{ color: '#64748b', textDecoration: 'none' }}>Accueil</Link>

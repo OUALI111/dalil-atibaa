@@ -82,7 +82,7 @@ export default async function WilayaSpecialitePage({ params, searchParams }) {
       <header className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <Link href="/">
-  <img src="/logo.svg" alt="Dalil Atibaa" style={{height:'36px', width:'auto'}} />
+  <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" style={{height:'36px', width:'auto'}} />
 </Link>
         </div>
       </header>

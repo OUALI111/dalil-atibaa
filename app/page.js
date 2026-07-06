@@ -204,7 +204,7 @@ export default async function HomePage() {
         <header className="bg-white shadow-sm sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.svg" alt="Dalil Atibaa" className="h-9 w-auto" />
+              <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
             </Link>
             <div className="flex items-center gap-3">
               
