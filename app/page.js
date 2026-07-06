@@ -27,30 +27,39 @@ export const metadata = {
 }
 
 async function getStats() {
-  // ✅ totalDoctors : head:true = COUNT PostgreSQL direct, jamais limité
-  const { count: totalDoctors } = await supabase
-    .from('doctors')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_active', true)
+  // ✅ Promise.all() : les 3 requêtes s'exécutent EN PARALLÈLE au lieu de l'une après l'autre.
+  // Avant : ~200ms + ~200ms + ~200ms = ~600ms séquentiels
+  // Après : max(200ms, 200ms, 200ms) = ~200ms simultanés → gain ~400ms sur le TTFB
+  const [
+    { count: totalDoctors },
+    { data: specialtiesRaw },
+    { data: wilayasRaw },
+  ] = await Promise.all([
+    // ✅ totalDoctors : head:true = COUNT PostgreSQL direct, jamais limité
+    supabase
+      .from('doctors')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true),
 
-  // ✅ SPECIALTIES : table de 32 lignes max → jamais limitée
-  // doctors(count) = COUNT imbriqué côté PostgreSQL, prouvé fonctionnel via REST API
-  const { data: specialtiesRaw } = await supabase
-    .from('specialties')
-    .select('id, name_fr, slug, doctors(count)')
-    .order('name_fr')
+    // ✅ SPECIALTIES : table de 32 lignes max → jamais limitée
+    // doctors(count) = COUNT imbriqué côté PostgreSQL, prouvé fonctionnel via REST API
+    supabase
+      .from('specialties')
+      .select('id, name_fr, slug, doctors(count)')
+      .order('name_fr'),
+
+    // ✅ WILAYAS : table de 58 lignes max → jamais limitée
+    // Même approche : doctors(count) imbriqué, toujours correct
+    supabase
+      .from('wilayas')
+      .select('id, name_fr, slug, doctors(count)')
+      .order('name_fr'),
+  ])
 
   // Filtre : garder uniquement les spécialités ayant au moins 1 médecin
   const specialties = specialtiesRaw
     ?.filter(s => (s.doctors?.[0]?.count ?? 0) > 0)
     .map(({ id, name_fr, slug }) => ({ id, name_fr, slug })) ?? []
-
-  // ✅ WILAYAS : table de 58 lignes max → jamais limitée
-  // Même approche : doctors(count) imbriqué, toujours correct
-  const { data: wilayasRaw } = await supabase
-    .from('wilayas')
-    .select('id, name_fr, slug, doctors(count)')
-    .order('name_fr')
 
   // Filtre : garder uniquement les wilayas ayant au moins 1 médecin
   const wilayas = wilayasRaw
@@ -59,6 +68,7 @@ async function getStats() {
 
   return { totalDoctors, specialties, wilayas }
 }
+
 
 async function getMeilleursPages() {
   const { data } = await supabase
