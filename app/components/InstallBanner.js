@@ -23,8 +23,7 @@ const VISIT_KEY    = 'dalil_visit_count'
 const DISMISS_DAYS = 7
 
 // ─── Helper GA4 ────────────────────────────────────────────────────────────
-// Envoie un event GA4 de manière sécurisée (ne plante pas si GA non chargé)
-function trackPWA(eventName, params = {}) {
+function trackGA4(eventName, params = {}) {
   try {
     if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', eventName, {
@@ -32,10 +31,32 @@ function trackPWA(eventName, params = {}) {
         ...params,
       })
     }
-  } catch (e) {
-    // silencieux — le tracking ne doit jamais bloquer l'UI
-  }
+  } catch (e) {}
 }
+
+// ─── Helper Supabase ────────────────────────────────────────────────────────
+function trackPWASupabase(event, params = {}) {
+  try {
+    fetch('/api/pwa-track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event,
+        platform: params.platform || null,
+        page:     typeof window !== 'undefined' ? window.location.pathname : null,
+        step:     params.step || null,
+      }),
+    }).catch(() => {})
+  } catch (e) {}
+}
+
+// ─── Tracker combiné GA4 + Supabase ─────────────────────────────────────────
+function track(eventName, params = {}) {
+  trackGA4(eventName, params)
+  trackPWASupabase(eventName.replace('pwa_', ''), params)
+}
+
+
 
 function isIosSafari() {
   if (typeof navigator === 'undefined') return false
@@ -78,7 +99,7 @@ export default function InstallBanner() {
     setPlatform(plt)
     setVisible(true)
     // 📊 GA4 : banner affiché
-    trackPWA('pwa_banner_shown', { platform: plt })
+    track('pwa_banner_shown', { platform: plt })
   }, [])
 
   useEffect(() => {
@@ -90,7 +111,7 @@ export default function InstallBanner() {
 
     // 📊 GA4 : visite depuis l'app installée (mode standalone)
     if (isStandalone()) {
-      trackPWA('pwa_session_standalone', {
+      track('pwa_session_standalone', {
         page: window.location.pathname,
       })
       return () => window.removeEventListener('beforeinstallprompt', onPrompt)
@@ -124,7 +145,7 @@ export default function InstallBanner() {
     setIosExpanded(false)
     try { localStorage.setItem(DISMISS_KEY, String(Date.now())) } catch {}
     // 📊 GA4 : utilisateur a fermé le banner sans installer
-    trackPWA('pwa_install_dismissed', { platform })
+    track('pwa_install_dismissed', { platform })
   }, [platform])
 
   const install = useCallback(async () => {
@@ -132,7 +153,7 @@ export default function InstallBanner() {
     if (!prompt) return
     setInstalling(true)
     // 📊 GA4 : clic sur le bouton "Installer"
-    trackPWA('pwa_install_clicked', { platform: 'android' })
+    track('pwa_install_clicked', { platform: 'android' })
     try {
       await prompt.prompt()
       const { outcome } = await prompt.userChoice
@@ -140,10 +161,10 @@ export default function InstallBanner() {
       setVisible(false)
       if (outcome === 'accepted') {
         // 📊 GA4 : installation confirmée — l'événement le plus précieux !
-        trackPWA('pwa_install_accepted', { platform: 'android' })
+        track('pwa_install_accepted', { platform: 'android' })
       } else {
         // 📊 GA4 : refus du prompt Chrome
-        trackPWA('pwa_install_dismissed', { platform: 'android', step: 'chrome_prompt' })
+        track('pwa_install_dismissed', { platform: 'android', step: 'chrome_prompt' })
         try { localStorage.setItem(DISMISS_KEY, String(Date.now())) } catch {}
       }
     } catch { setInstalling(false) }
