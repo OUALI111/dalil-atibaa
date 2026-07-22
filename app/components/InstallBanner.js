@@ -7,6 +7,13 @@
  *
  * Android Chrome  → bouton "Installer" → prompt natif Chrome en 1 clic
  * iOS Safari      → barre + expansion douce avec 2 étapes visuelles
+ *
+ * 📊 Tracking GA4 :
+ *   pwa_banner_shown      → banner affiché (android/ios)
+ *   pwa_install_clicked   → clic sur "Installer"
+ *   pwa_install_accepted  → utilisateur a accepté l'installation
+ *   pwa_install_dismissed → utilisateur a refusé/fermé
+ *   pwa_session_standalone→ visite depuis l'app déjà installée
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -14,6 +21,21 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 const DISMISS_KEY  = 'dalil_install_dismissed'
 const VISIT_KEY    = 'dalil_visit_count'
 const DISMISS_DAYS = 7
+
+// ─── Helper GA4 ────────────────────────────────────────────────────────────
+// Envoie un event GA4 de manière sécurisée (ne plante pas si GA non chargé)
+function trackPWA(eventName, params = {}) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+      window.gtag('event', eventName, {
+        event_category: 'PWA',
+        ...params,
+      })
+    }
+  } catch (e) {
+    // silencieux — le tracking ne doit jamais bloquer l'UI
+  }
+}
 
 function isIosSafari() {
   if (typeof navigator === 'undefined') return false
@@ -55,6 +77,8 @@ export default function InstallBanner() {
     if (isStandalone() || wasDismissedRecently()) return
     setPlatform(plt)
     setVisible(true)
+    // 📊 GA4 : banner affiché
+    trackPWA('pwa_banner_shown', { platform: plt })
   }, [])
 
   useEffect(() => {
@@ -64,7 +88,13 @@ export default function InstallBanner() {
     }
     window.addEventListener('beforeinstallprompt', onPrompt)
 
-    if (isStandalone()) return () => window.removeEventListener('beforeinstallprompt', onPrompt)
+    // 📊 GA4 : visite depuis l'app installée (mode standalone)
+    if (isStandalone()) {
+      trackPWA('pwa_session_standalone', {
+        page: window.location.pathname,
+      })
+      return () => window.removeEventListener('beforeinstallprompt', onPrompt)
+    }
 
     const visitCount = incrementVisit()
 
@@ -93,18 +123,27 @@ export default function InstallBanner() {
     setVisible(false)
     setIosExpanded(false)
     try { localStorage.setItem(DISMISS_KEY, String(Date.now())) } catch {}
-  }, [])
+    // 📊 GA4 : utilisateur a fermé le banner sans installer
+    trackPWA('pwa_install_dismissed', { platform })
+  }, [platform])
 
   const install = useCallback(async () => {
     const prompt = deferredPromptRef.current
     if (!prompt) return
     setInstalling(true)
+    // 📊 GA4 : clic sur le bouton "Installer"
+    trackPWA('pwa_install_clicked', { platform: 'android' })
     try {
       await prompt.prompt()
       const { outcome } = await prompt.userChoice
       deferredPromptRef.current = null
       setVisible(false)
-      if (outcome !== 'accepted') {
+      if (outcome === 'accepted') {
+        // 📊 GA4 : installation confirmée — l'événement le plus précieux !
+        trackPWA('pwa_install_accepted', { platform: 'android' })
+      } else {
+        // 📊 GA4 : refus du prompt Chrome
+        trackPWA('pwa_install_dismissed', { platform: 'android', step: 'chrome_prompt' })
         try { localStorage.setItem(DISMISS_KEY, String(Date.now())) } catch {}
       }
     } catch { setInstalling(false) }
