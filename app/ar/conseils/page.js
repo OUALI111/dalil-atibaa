@@ -1,18 +1,36 @@
 import { supabase } from '../../../lib/supabase'
 import Link from 'next/link'
+import SiteHeader from '../../components/SiteHeader'
+import SiteFooter from '../../components/SiteFooter'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// ✅ ISR : cache la page 1h au lieu de recalculer à chaque requête
+export const revalidate = 3600
 
 export const metadata = {
   title: 'نصائح طبية في الجزائر | دليل الأطباء',
   description: 'إجابات لأسئلتك الطبية من متخصصين. استشر أفضل الأطباء في الجزائر.',
+  // ✅ Canonical + hreflang : Google sait que cette page est la version arabe de /conseils
+  alternates: {
+    canonical: 'https://www.dalil-atibaa.com/ar/conseils',
+    languages: {
+      'fr': 'https://www.dalil-atibaa.com/conseils',
+      'ar': 'https://www.dalil-atibaa.com/ar/conseils',
+      'x-default': 'https://www.dalil-atibaa.com/conseils',
+    }
+  },
+  openGraph: {
+    title: 'نصائح طبية في الجزائر | دليل الأطباء',
+    description: 'إجابات لأسئلتك الطبية من متخصصين. استشر أفضل الأطباء في الجزائر.',
+    url: 'https://www.dalil-atibaa.com/ar/conseils',
+    locale: 'ar_DZ',
+    type: 'website',
+  }
 }
 
 export default async function ConseillsArPage() {
   const { data: conseils } = await supabase
     .from('conseils')
-    .select('slug, question_ar, specialty_id, specialties(name_fr)')
+    .select('slug, question_ar, specialty_id, specialties(name_fr, name_ar)')
     .eq('is_active', true)
     .eq('lang', 'ar')
     .order('id', { ascending: false })
@@ -20,21 +38,8 @@ export default async function ConseillsArPage() {
   return (
     <main className="min-h-screen bg-gray-50" dir="rtl">
 
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/conseils" className="hidden sm:block text-sm text-gray-600 hover:text-blue-600 transition">
-              🇫🇷 Français
-            </Link>
-            <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
-              ابحث عن طبيب
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* ✅ Bug #26 : SiteHeader partagé — version arabe */}
+      <SiteHeader lang="ar" currentPath="/ar/conseils" />
 
       <div className="max-w-6xl mx-auto px-4 py-10">
         <div className="mb-8">
@@ -47,10 +52,12 @@ export default async function ConseillsArPage() {
             <Link key={c.slug} href={`/ar/conseils/${c.slug}`}>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 hover:border-blue-200 hover:shadow-md transition h-full">
                 <span className="text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                  {c.specialties?.name_fr}
+                  {/* ✅ Correction : affichage du nom de spécialité en arabe */}
+                  {c.specialties?.name_ar || c.specialties?.name_fr}
                 </span>
                 <p className="mt-3 font-semibold text-gray-800 leading-snug">{c.question_ar}</p>
-                <p className="mt-3 text-sm text-blue-600 font-medium">← اقرأ الجواب</p>
+                {/* ✅ Correction flèche RTL : → indique "aller vers la droite" en arabe */}
+                <p className="mt-3 text-sm text-blue-600 font-medium">اقرأ الجواب →</p>
               </div>
             </Link>
           ))}
@@ -63,18 +70,8 @@ export default async function ConseillsArPage() {
         )}
       </div>
 
-      <footer className="bg-gray-900 text-gray-400 py-10 mt-12">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="font-bold text-white text-lg mb-2">دليل الأطباء</p>
-          <div className="flex justify-center gap-6 text-sm flex-wrap mt-3">
-            <Link href="/" className="hover:text-white transition">الرئيسية</Link>
-            <Link href="/ar/conseils" className="hover:text-white transition">نصائح طبية</Link>
-            <Link href="/recherche" className="hover:text-white transition">بحث</Link>
-            <Link href="/contact" className="hover:text-white transition">اتصل بنا</Link>
-          </div>
-          <p className="text-xs mt-6">© 2026 دليل الأطباء — جميع الحقوق محفوظة</p>
-        </div>
-      </footer>
+      {/* ✅ Bug #26 : SiteFooter partagé — version arabe */}
+      <SiteFooter lang="ar" />
 
     </main>
   )

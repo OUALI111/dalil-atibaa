@@ -1,16 +1,28 @@
 import { supabase } from '../../../lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
+import ConseilGpsButton from './ConseilGpsButton'
 
-export const dynamic = 'force-dynamic'
+// ✅ ISR 1h : le contenu des conseils change rarement, inutile de recalculer à chaque visite
+export const revalidate = 3600
+
+// ✅ cache() React : déduplique la requête entre generateMetadata() et ConseilPage()
+// Sans cache(), les deux fonctions faisaient chacune une requête SQL séparée pour le même slug.
+const getConseilBySlug = cache(async (slug) => {
+  const { data: conseil } = await supabase
+    .from('conseils')
+    .select('*, specialties(id, name_fr, slug)')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .single()
+  return conseil
+})
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  const { data: conseil } = await supabase
-    .from('conseils')
-    .select('question_fr, answer_fr, content_fr, meta_title, meta_description, specialties(name_fr)')
-    .eq('slug', slug)
-    .single()
+  // ✅ Utilise getConseilBySlug (cached) → zéro requête supplémentaire si ConseilPage a déjà appelé cette fonction
+  const conseil = await getConseilBySlug(slug)
 
   if (!conseil) return { title: 'Conseil introuvable' }
 
@@ -61,12 +73,9 @@ function renderContent(content) {
 export default async function ConseilPage({ params }) {
   const { slug } = await params
 
-  const { data: conseil } = await supabase
-    .from('conseils')
-    .select('*, specialties(id, name_fr, slug), wilayas(id, name_fr, slug)')
-    .eq('slug', slug)
-    .eq('is_active', true)
-    .single()
+  // ✅ getConseilBySlug (cached) : si generateMetadata a déjà fait la requête,
+  // React réutilise le résultat en mémoire → 0 requête SQL supplémentaire
+  const conseil = await getConseilBySlug(slug)
 
   if (!conseil) notFound()
 
@@ -102,22 +111,33 @@ export default async function ConseilPage({ params }) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <main className="min-h-screen bg-gray-50">
 
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
-             <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
+      <header style={{ backgroundColor: '#1A87D8' }} className="sticky top-0 z-50 py-4 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 flex justify-between items-center">
+          <Link href="/">
+            <img 
+              src="/logo.svg" 
+              alt="Dalil Atibaa" 
+              width="200" 
+              height="44" 
+              style={{ 
+                height: '36px', 
+                width: 'auto', 
+                filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+              }} 
+            />
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/conseils" className="hidden sm:block text-sm text-gray-600 hover:text-blue-600 transition">
-              💡 Conseils
-            </Link>
-            <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+            <Link 
+              href="/recherche" 
+              className="bg-white text-blue-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow-sm"
+            >
               Trouver un médecin
             </Link>
           </div>
@@ -142,7 +162,7 @@ export default async function ConseilPage({ params }) {
 
           <article className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-8 text-white">
+            <div style={{ backgroundColor: '#1A87D8' }} className="p-8 text-white">
               <div className="flex items-center gap-2 mb-4">
                 <span className="bg-white/20 text-white text-xs font-medium px-3 py-1 rounded-full">
                   {conseil.specialties?.name_fr}
@@ -178,20 +198,20 @@ export default async function ConseilPage({ params }) {
 
             <div className="mx-8 mb-8 bg-blue-50 border border-blue-100 rounded-2xl p-6">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                <div style={{ backgroundColor: '#1A87D8' }} className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800 mb-1">Consultez un {conseil.specialties?.name_fr}</p>
+                  <p className="font-bold text-gray-800 mb-1">Trouver un {conseil.specialties?.name_fr} près de chez moi</p>
                   <p className="text-gray-600 text-sm mb-3">
-                    Ces informations sont générales. Pour un diagnostic précis, consultez un professionnel de santé.
+                    Prenez rendez-vous directement avec un {conseil.specialties?.name_fr?.toLowerCase()} à proximité de votre position en Algérie.
                   </p>
-                  <Link href={`/specialites/${conseil.specialties?.slug}`}
-                    className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-blue-700 transition">
-                    Trouver un {conseil.specialties?.name_fr} →
-                  </Link>
+                  <ConseilGpsButton specialtySlug={conseil.specialties?.slug}>
+                    Trouver un {conseil.specialties?.name_fr} près de moi
+                  </ConseilGpsButton>
                 </div>
               </div>
             </div>
@@ -212,9 +232,9 @@ export default async function ConseilPage({ params }) {
                 {doctors.map(d => (
                   <Link key={d.id} href={`/docteur/${d.slug}`}>
                     <div className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition group">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
-                        {d.name_fr?.charAt(0)}
-                      </div>
+                    <div style={{ backgroundColor: '#1A87D8' }} className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0">
+                      {d.name_fr?.charAt(0)}
+                    </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-800 truncate text-sm group-hover:text-blue-700">{d.name_fr}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{d.wilayas?.name_fr}</p>
@@ -264,7 +284,7 @@ export default async function ConseilPage({ params }) {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white sticky top-20">
+          <div style={{ backgroundColor: '#1A87D8' }} className="rounded-2xl p-6 text-white sticky top-20">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -275,7 +295,8 @@ export default async function ConseilPage({ params }) {
               Consultez un {conseil.specialties?.name_fr} qualifié près de chez vous en Algérie.
             </p>
             <Link href={`/specialites/${conseil.specialties?.slug}`}
-              className="block text-center bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
+              style={{ color: '#1E293B' }}
+              className="block text-center bg-white font-bold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
               Trouver un {conseil.specialties?.name_fr}
             </Link>
             <Link href="/recherche"
@@ -313,19 +334,88 @@ export default async function ConseilPage({ params }) {
         </div>
       </div>
 
-      <footer className="bg-gray-900 text-gray-400 py-10 mt-12">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="font-bold text-white text-lg mb-2">Dalil Atibaa</p>
-          <p className="text-sm mb-4">Annuaire des médecins en Algérie</p>
-          <div className="flex justify-center gap-6 text-sm flex-wrap">
-            <Link href="/" className="hover:text-white transition">Accueil</Link>
-            <Link href="/conseils" className="hover:text-white transition">Conseils</Link>
-            <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
-            <Link href="/contact" className="hover:text-white transition">Contact</Link>
+      {/* FOOTER */}
+      <footer style={{ backgroundColor: '#0f172a' }} className="text-gray-400 py-16 border-t border-gray-800 mt-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12 text-left">
+            
+            {/* Colonne 1: À Propos */}
+            <div className="space-y-4">
+              <Link href="/" className="inline-block">
+                <img 
+                  src="/logo.svg" 
+                  alt="Dalil Atibaa" 
+                  width="180" 
+                  height="40" 
+                  style={{ 
+                    height: '32px', 
+                    width: 'auto', 
+                    filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+                  }} 
+                />
+              </Link>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                Le premier annuaire médical en Algérie. Trouvez un professionnel de santé proche de chez vous et facilitez vos démarches de soin au quotidien.
+              </p>
+            </div>
+
+            {/* Colonne 2: Liens Utiles */}
+            <div className="space-y-3">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">Liens Utiles</h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li><Link href="/" className="hover:text-white transition">Accueil</Link></li>
+                <li><Link href="/recherche" className="hover:text-white transition">Recherche avancée</Link></li>
+                <li><Link href="/conseils" className="hover:text-white transition">Conseils Médicaux</Link></li>
+                <li><Link href="/a-propos" className="hover:text-white transition">À propos de nous</Link></li>
+                <li><Link href="/contact" className="hover:text-white transition">Nous contacter</Link></li>
+              </ul>
+            </div>
+
+            {/* Colonne 3: Spécialités populaires */}
+            <div className="space-y-3">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">Spécialités Populaires</h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li><Link href="/specialites/dentiste" className="hover:text-white transition">Dentiste en Algérie</Link></li>
+                <li><Link href="/specialites/gynecologue" className="hover:text-white transition">Gynécologue en Algérie</Link></li>
+                <li><Link href="/specialites/cardiologue" className="hover:text-white transition">Cardiologue en Algérie</Link></li>
+                <li><Link href="/specialites/pediatre" className="hover:text-white transition">Pédiatre en Algérie</Link></li>
+                <li><Link href="/specialites/ophtalmologue" className="hover:text-white transition">Ophtalmologue en Algérie</Link></li>
+              </ul>
+            </div>
+
+            {/* Colonne 4: B2B Cabinet */}
+            <div className="space-y-4">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">Vous êtes médecin ?</h3>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                Rejoignez Dalil Atibaa pour augmenter la visibilité de votre cabinet et simplifier l'accès aux soins de vos patients.
+              </p>
+              <Link 
+                href="/contact" 
+                className="inline-block bg-[#1A87D8] hover:bg-[#1571b6] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-sm"
+              >
+                Inscrire mon cabinet
+              </Link>
+            </div>
+
           </div>
-          <p className="text-xs mt-6">© 2026 Dalil Atibaa — Tous droits réservés</p>
+
+          {/* Sub-footer */}
+          <div className="border-t border-slate-800 mt-12 pt-10 flex flex-col items-center gap-6 text-center text-xs text-gray-300">
+            <div className="space-y-3">
+              <p className="font-medium">© 2026 Dalil Atibaa — Annuaire des médecins en Algérie. Tous droits réservés.</p>
+              <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                Dalil Atibaa n'est pas un service d'urgence. En cas d'urgence médicale, contactez le 14 ou le 115.
+              </p>
+            </div>
+            <div className="flex justify-center gap-4 text-gray-400 pt-2">
+              <Link href="/a-propos" className="hover:text-white transition">Mentions légales</Link>
+              <span>•</span>
+              <Link href="/contact" className="hover:text-white transition">Support</Link>
+            </div>
+          </div>
         </div>
       </footer>
-    </main>
+      </main>
+    </>
   )
 }

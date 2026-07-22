@@ -1,16 +1,31 @@
 import { supabase } from '../../../../lib/supabase'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { cache } from 'react'
 
 export const revalidate = 3600
 
-export async function generateMetadata({ params }) {
-  const { slug } = await params
+// ✅ cache() React : déduplique la requête entre generateMetadata() et DoctorArPage()
+// Sans cache(), les deux fonctions faisaient 2 requêtes SQL séparées pour le même slug.
+const getDoctorArBySlug = cache(async (slug) => {
   const { data: doctor } = await supabase
     .from('doctors')
-    .select('name_fr, name_ar, specialty_id, specialties(name_fr, name_ar), wilayas(name_fr, name_ar)')
+    .select(`
+      id, name_fr, name_ar, slug, address, address_ar, phone, rating, reviews_count,
+      google_map_url, latitude, longitude, is_verified, booking_url,
+      specialty_id, wilaya_id,
+      specialties(id, name_fr, name_ar, slug),
+      wilayas(name_fr, name_ar, slug)
+    `)
     .eq('slug', slug)
     .single()
+  return doctor
+})
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params
+  // ✅ getDoctorArBySlug (cached) → zéro requête supplémentaire si DoctorArPage a déjà appelé cette fonction
+  const doctor = await getDoctorArBySlug(slug)
 
   if (!doctor) return { title: 'طبيب غير موجود' }
 
@@ -38,36 +53,49 @@ export async function generateMetadata({ params }) {
 export default async function DoctorArPage({ params }) {
   const { slug } = await params
 
-  const { data: doctor } = await supabase
-    .from('doctors')
-    .select(`
-      id, name_fr, name_ar, slug, address, address_ar, phone, rating, reviews_count,
-      google_map_url, latitude, longitude, is_verified,
-      specialty_id, wilaya_id,
-      specialties(id, name_fr, name_ar, slug),
-      wilayas(name_fr, name_ar, slug)
-    `)
-    .eq('slug', slug)
-    .single()
+  // ✅ getDoctorArBySlug (cached) : si generateMetadata a déjà fait la requête,
+  // React réutilise le résultat en mémoire → 0 requête SQL supplémentaire
+  const doctor = await getDoctorArBySlug(slug)
 
-  if (!doctor) notFound()
+  if (!doctor) {
+    // ✅ Vérification dans la table des redirections d'anciens slugs (parité avec la version FR)
+    const { data: slugRedirect } = await supabase
+      .from('slug_redirects')
+      .select('new_slug, specialty_slug, wilaya_slug')
+      .eq('old_slug', slug)
+      .single()
+
+    if (slugRedirect) {
+      // Redirection vers l'URL arabe si un nouveau slug existe,
+      // sinon vers la page de spécialité française (pas encore de pages spécialité arabes)
+      const destination = slugRedirect.new_slug
+        ? `/ar/docteur/${slugRedirect.new_slug}`
+        : `/specialites/${slugRedirect.specialty_slug}/${slugRedirect.wilaya_slug}`
+
+      redirect(destination)
+    }
+
+    notFound()
+  }
 
   const displayName = doctor.name_ar || doctor.name_fr
   const displayAddress = doctor.address_ar || doctor.address
 
-  const { data: services } = await supabase
-  .from('services')
-  .select('name_fr, name_ar')
-  .eq('specialty_id', doctor.specialty_id)
-
-  const { data: similar } = await supabase
-    .from('doctors')
-    .select('id, name_fr, name_ar, slug, rating, wilayas(name_ar)')
-    .eq('specialty_id', doctor.specialty_id)
-    .eq('wilaya_id', doctor.wilaya_id)
-    .neq('id', doctor.id)
-    .order('rating', { ascending: false })
-    .limit(6)
+  // ✅ Promise.all : services et similar en parallèle au lieu de séquentiel
+  const [{ data: services }, { data: similar }] = await Promise.all([
+    supabase
+      .from('services')
+      .select('name_fr, name_ar')
+      .eq('specialty_id', doctor.specialty_id),
+    supabase
+      .from('doctors')
+      .select('id, name_fr, name_ar, slug, rating, wilayas(name_ar)')
+      .eq('specialty_id', doctor.specialty_id)
+      .eq('wilaya_id', doctor.wilaya_id)
+      .neq('id', doctor.id)
+      .order('rating', { ascending: false })
+      .limit(6)
+  ])
 
   const stars = Math.round(doctor.rating || 0)
   const whatsappNumber = doctor.phone?.replace(/\D/g, '').replace(/^0/, '213')
@@ -99,9 +127,9 @@ export default async function DoctorArPage({ params }) {
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'الرئيسية', item: 'https://www.dalil-atibaa.com/ar' },
-          { '@type': 'ListItem', position: 2, name: doctor.specialties?.name_ar, item: `https://www.dalil-atibaa.com/ar/specialites/${doctor.specialties?.slug}` },
-          { '@type': 'ListItem', position: 3, name: doctor.wilayas?.name_ar, item: `https://www.dalil-atibaa.com/ar/wilayas/${doctor.wilayas?.slug}` },
+          { '@type': 'ListItem', position: 1, name: 'الرئيسية', item: 'https://www.dalil-atibaa.com/' },
+          { '@type': 'ListItem', position: 2, name: doctor.specialties?.name_ar, item: `https://www.dalil-atibaa.com/specialites/${doctor.specialties?.slug}` },
+          { '@type': 'ListItem', position: 3, name: doctor.wilayas?.name_ar, item: `https://www.dalil-atibaa.com/wilayas/${doctor.wilayas?.slug}` },
           { '@type': 'ListItem', position: 4, name: displayName, item: `https://www.dalil-atibaa.com/ar/docteur/${doctor.slug}` },
         ]
       },
@@ -125,44 +153,43 @@ export default async function DoctorArPage({ params }) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50" dir="rtl">
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-
-      {/* HEADER */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
-                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
+      <main className="min-h-screen bg-gray-50" dir="rtl">
+        
+        {/* HEADER */}
+        <header style={{ backgroundColor: '#1A87D8' }} className="sticky top-0 z-50 py-4 shadow-sm">
+          <div className="max-w-5xl mx-auto px-4 flex justify-between items-center">
+            <Link href="/">
+              <img 
+                src="/logo.svg" 
+                alt="دليل الأطباء" 
+                width="200" 
+                height="44" 
+                style={{ 
+                  height: '36px', 
+                  width: 'auto', 
+                  filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+                }} 
+              />
+            </Link>
+            <div className="flex items-center gap-4">
+              <Link 
+                href={`/docteur/${slug}`} 
+                className="text-white hover:text-blue-100 text-sm font-semibold transition flex items-center gap-1.5"
+              >
+                🇫🇷 Français
+              </Link>
+              <Link 
+                href="/recherche" 
+                className="bg-white text-blue-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow-sm"
+              >
+                ابحث عن طبيب
+              </Link>
             </div>
-            <span className="font-bold text-gray-900">دليل الأطباء</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href={`/docteur/${slug}`}
-              className="flex items-center gap-1.5 border border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-gray-600 hover:text-blue-700 text-sm px-3 py-2 rounded-xl font-medium transition"
-              title="Version française">
-              <span className="text-base leading-none">🇫🇷</span>
-              <span>Français</span>
-            </Link>
-            <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
-              ابحث عن طبيب
-            </Link>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* BREADCRUMB */}
-      <div className="max-w-5xl mx-auto px-4 py-3 text-sm text-gray-400 flex gap-2 items-center flex-wrap">
-        <Link href="/" className="hover:text-blue-600 transition">الرئيسية</Link>
-        <span>›</span>
-        <Link href={`/ar/specialites/${doctor.specialties?.slug}`} className="hover:text-blue-600 transition">{doctor.specialties?.name_ar}</Link>
-        <span>›</span>
-        <Link href={`/ar/wilayas/${doctor.wilayas?.slug}`} className="hover:text-blue-600 transition">{doctor.wilayas?.name_ar}</Link>
-        <span>›</span>
-        <span className="text-gray-600 truncate max-w-xs">{displayName}</span>
-      </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-5">
@@ -170,14 +197,15 @@ export default async function DoctorArPage({ params }) {
           {/* بطاقة الطبيب */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-start gap-5">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-3xl shrink-0 shadow-md">
+              <div style={{ backgroundColor: '#1A87D8' }} className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shrink-0 shadow-md">
                 {displayName?.charAt(0)}
               </div>
               <div className="flex-1">
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div>
                     <h1 className="text-xl font-bold text-gray-900 leading-tight">{displayName}</h1>
-                    <Link href={`/ar/specialites/${doctor.specialties?.slug}`}
+                    {/* ✅ Redirige vers la recherche filtrée car /ar/specialites/ n'existe pas encore */}
+                    <Link href={`/recherche?specialite=${doctor.specialties?.slug}`}
                       className="text-blue-600 font-medium text-sm hover:underline mt-0.5 inline-block">
                       {doctor.specialties?.name_ar}
                     </Link>
@@ -190,7 +218,8 @@ export default async function DoctorArPage({ params }) {
                 </div>
                 <div className="flex items-center gap-2 mt-3">
                   {[1,2,3,4,5].map(i => (
-                    <svg key={i} className={`w-4 h-4 ${i <= stars ? 'text-yellow-400' : 'text-gray-200'}`} fill="currentColor" viewBox="0 0 20 20">
+                    // ✅ key stable : le numéro de l'étoile est unique et ne change jamais
+                    <svg key={`star-${i}`} className={`w-4 h-4 ${i <= stars ? 'text-yellow-400' : 'text-gray-200'}`} fill="currentColor" viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                   ))}
@@ -227,16 +256,34 @@ export default async function DoctorArPage({ params }) {
             </div>
 
             {/* أزرار موبايل */}
-            <div className="mt-5 flex gap-3 lg:hidden">
-              <a href={`tel:${doctor.phone}`}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm">
-                📞 اتصل
-              </a>
-              <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-xl font-semibold text-sm">
-                💬 واتساب
-              </a>
-            </div>
+            {doctor.phone && (
+              <div className="mt-5 space-y-3 lg:hidden">
+                {doctor.booking_url && (
+                  <a 
+                    href={doctor.booking_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex flex-col items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold transition text-xs shadow-sm"
+                  >
+                    <span>حجز موعد عبر الإنترنت (تأكيد فوري بنقرة واحدة)</span>
+                  </a>
+                )}
+                <div className="flex gap-3">
+                  <a href={`tel:${doctor.phone}`}
+                    style={{ backgroundColor: '#1E293B' }}
+                    className="flex-1 flex items-center justify-center gap-2 hover:opacity-90 text-white py-3 rounded-xl font-semibold text-sm">
+                    📞 اتصل
+                  </a>
+                  {/* ✅ Guard whatsappNumber pour éviter href="wa.me/undefined" */}
+                  {whatsappNumber && (
+                    <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-xl font-semibold text-sm">
+                      💬 واتساب
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* الخدمات */}
@@ -245,38 +292,72 @@ export default async function DoctorArPage({ params }) {
               <h2 className="font-bold text-gray-900 text-lg mb-4">الخدمات المقدمة</h2>
               <div className="flex flex-wrap gap-2">
                 {services.map((s, i) => (
-  <span key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-full text-sm font-medium">
-    ✓ {s.name_ar || s.name_fr}
-  </span>
-))}
+                  // ✅ key stable : slug ou name unique, index en fallback uniquement
+                  <span key={s.slug || s.name_ar || s.name_fr || i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-full text-sm font-medium">
+                    ✓ {s.name_ar || s.name_fr}
+                  </span>
+                ))}
               </div>
             </div>
           )}
 
           {/* الخريطة */}
-          {doctor.google_map_url && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <a href={doctor.google_map_url} target="_blank" rel="noopener noreferrer" className="block group">
-                <div className="relative w-full h-48 bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">📍</div>
-                    <p className="text-blue-600 font-semibold text-sm">عرض على خرائط Google</p>
-                    <p className="text-blue-400 text-xs mt-1">{displayAddress || doctor.wilayas?.name_ar}</p>
+          {(doctor.google_map_url || (doctor.latitude && doctor.longitude)) && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-right">
+              <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                الموقع الجغرافي
+              </h2>
+              
+              <a 
+                href={doctor.google_map_url || `https://maps.google.com/maps?q=${doctor.latitude},${doctor.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative block w-full h-[220px] rounded-2xl overflow-hidden group shadow-sm border border-gray-100 transition hover:shadow-md"
+              >
+                {/* Image de fond de carte statique */}
+                {doctor.latitude && doctor.longitude ? (
+                  <img 
+                    src={`https://static-maps.yandex.ru/1.x/?ll=${doctor.longitude},${doctor.latitude}&z=15&l=map&size=650,220`}
+                    alt="موقع العيادة" 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">الخريطة غير متوفرة</span>
                   </div>
-                  <div className="absolute top-3 left-3 bg-white rounded-lg px-2.5 py-1.5 shadow-lg flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-gray-700">Google Maps</span>
-                  </div>
-                </div>
-                <div className="p-4 flex items-center gap-3 group-hover:bg-blue-50 transition">
-                  <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                )}
+
+                {/* Overlay sombre au survol */}
+                <div className="absolute inset-0 z-10 bg-slate-900/5 group-hover:bg-slate-900/20 transition-colors duration-300 flex items-center justify-center">
+                  
+                  {/* Pin de carte central */}
+                  <div className="relative z-20 w-12 h-12 flex items-center justify-center drop-shadow-md">
+                    <svg className="w-8 h-8 text-red-500 transition-transform duration-300 group-hover:-translate-y-1" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                     </svg>
+                    {/* Effet d'onde de pulsation sous le pin */}
+                    <div className="absolute w-8 h-8 rounded-full bg-red-400/30 animate-ping -z-10" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800">{displayAddress || doctor.wilayas?.name_ar}</p>
-                    <p className="text-xs text-gray-400">{doctor.wilayas?.name_ar} — الجزائر</p>
+
+                  {/* Bouton d'action au survol (version arabe avec style RTL) */}
+                  <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm py-2.5 px-4 rounded-xl shadow-md border border-gray-100 flex items-center justify-between transition-all duration-300 translate-y-2 group-hover:translate-y-0" dir="rtl">
+                    <div className="min-w-0 flex-1 text-right">
+                      <p className="text-xs font-bold text-gray-800 truncate">
+                        {displayAddress || "عرض مسار الطريق"}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-medium">
+                        {doctor.wilayas?.name_ar}
+                      </p>
+                    </div>
+                    <span className="shrink-0 bg-[#1A87D8] hover:bg-[#1571b6] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition">
+                      عرض الاتجاهات
+                    </span>
                   </div>
+
                 </div>
               </a>
             </div>
@@ -289,8 +370,9 @@ export default async function DoctorArPage({ params }) {
                 <h2 className="font-bold text-gray-900">
                   أطباء {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar}
                 </h2>
-                <Link href={`/ar/specialites/${doctor.specialties?.slug}`} className="text-sm text-blue-600 hover:underline">
-                  ← عرض الكل
+                {/* ✅ Redirige vers la recherche filtrée + flèche RTL corrigée (→ au lieu de ←) */}
+                <Link href={`/recherche?specialite=${doctor.specialties?.slug}`} className="text-sm text-blue-600 hover:underline">
+                  عرض الكل →
                 </Link>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -299,7 +381,7 @@ export default async function DoctorArPage({ params }) {
                   return (
                     <Link key={s.id} href={`/ar/docteur/${s.slug}`}>
                       <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold shrink-0">
+                        <div style={{ backgroundColor: '#1A87D8' }} className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0">
                           {simName?.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -352,8 +434,9 @@ export default async function DoctorArPage({ params }) {
                 <p className="font-semibold text-blue-800 text-sm mb-1">
                   أطباء {doctor.specialties?.name_ar} آخرون في {doctor.wilayas?.name_ar}
                 </p>
-                <Link href={`/ar/specialites/${doctor.specialties?.slug}`} className="text-blue-600 text-sm hover:underline">
-                  عرض كل أطباء {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar} ←
+                {/* ✅ Redirige vers la recherche filtrée + flèche RTL corrigée */}
+                <Link href={`/recherche?specialite=${doctor.specialties?.slug}`} className="text-blue-600 text-sm hover:underline">
+                  عرض كل أطباء {doctor.specialties?.name_ar} في {doctor.wilayas?.name_ar} →
                 </Link>
               </div>
             </div>
@@ -362,16 +445,32 @@ export default async function DoctorArPage({ params }) {
 
         {/* SIDEBAR */}
         <div className="space-y-4">
-          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white sticky top-20">
+          <div style={{ backgroundColor: '#1A87D8' }} className="rounded-2xl p-6 text-white sticky top-20">
             <h2 className="font-bold text-lg mb-4 text-center">احجز موعدك</h2>
-            <a href={`tel:${doctor.phone}`}
-              className="flex items-center justify-center gap-2 w-full bg-white text-blue-600 py-3 rounded-xl font-bold mb-3 hover:bg-blue-50 transition">
-              📞 اتصل الآن
-            </a>
-            <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold transition">
-              💬 واتساب
-            </a>
+            {doctor.booking_url && (
+              <a 
+                href={doctor.booking_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center justify-center gap-1 w-full bg-white text-blue-600 py-3 rounded-xl font-bold mb-3 hover:bg-blue-50 transition shadow-md"
+              >
+                <span>حجز موعد عبر الإنترنت</span>
+                <span className="text-[10px] text-blue-500 font-normal">تأكيد فوري بنقرة واحدة</span>
+              </a>
+            )}
+            {doctor.phone && (
+              <a href={`tel:${doctor.phone}`}
+                style={{ color: '#1E293B' }}
+                className="flex items-center justify-center gap-2 w-full bg-white py-3 rounded-xl font-bold mb-3 hover:bg-blue-50 transition">
+                📞 اتصل الآن
+              </a>
+            )}
+            {doctor.phone && (
+              <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold transition">
+                💬 واتساب
+              </a>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
@@ -411,18 +510,88 @@ export default async function DoctorArPage({ params }) {
         </div>
       </div>
 
-      <footer className="bg-gray-900 text-gray-400 py-10 mt-12">
-        <div className="max-w-5xl mx-auto px-4 text-center">
-          <p className="font-bold text-white text-lg mb-2">دليل الأطباء</p>
-          <div className="flex justify-center gap-6 text-sm flex-wrap mt-3">
-            <Link href="/" className="hover:text-white transition">الرئيسية</Link>
-            <Link href="/ar/conseils" className="hover:text-white transition">نصائح طبية</Link>
-            <Link href="/recherche" className="hover:text-white transition">بحث</Link>
-            <Link href="/contact" className="hover:text-white transition">اتصل بنا</Link>
+        {/* FOOTER */}
+        <footer style={{ backgroundColor: '#0f172a' }} className="text-gray-400 py-16 border-t border-gray-800 mt-12 text-right">
+          <div className="max-w-5xl mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+              
+              {/* Colonne 1: À Propos */}
+              <div className="space-y-4">
+                <Link href="/" className="inline-block">
+                  <img 
+                    src="/logo.svg" 
+                    alt="دليل الأطباء" 
+                    width="180" 
+                    height="40" 
+                    style={{ 
+                      height: '32px', 
+                      width: 'auto', 
+                      filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+                    }} 
+                  />
+                </Link>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  دليل الأطباء الأول في الجزائر. ابحث عن طبيب قريب منك وسهل خطوات علاجك اليومية.
+                </p>
+              </div>
+
+              {/* Colonne 2: Liens Utiles */}
+              <div className="space-y-3">
+                <h3 className="text-white font-bold text-sm uppercase tracking-wider">روابط مفيدة</h3>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li><Link href="/" className="hover:text-white transition">الرئيسية</Link></li>
+                  <li><Link href="/recherche" className="hover:text-white transition">البحث المتقدم</Link></li>
+                  <li><Link href="/ar/conseils" className="hover:text-white transition">نصائح طبية</Link></li>
+                  <li><Link href="/a-propos" className="hover:text-white transition">من نحن</Link></li>
+                  <li><Link href="/contact" className="hover:text-white transition">اتصل بنا</Link></li>
+                </ul>
+              </div>
+
+              {/* Colonne 3: Spécialités populaires */}
+              <div className="space-y-3">
+                <h3 className="text-white font-bold text-sm uppercase tracking-wider">تخصصات شائعة</h3>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li><Link href="/specialites/dentiste" className="hover:text-white transition">طبيب أسنان في الجزائر</Link></li>
+                  <li><Link href="/specialites/gynecologue" className="hover:text-white transition">طبيب النساء في الجزائر</Link></li>
+                  <li><Link href="/specialites/cardiologue" className="hover:text-white transition">طبيب القلب في الجزائر</Link></li>
+                  <li><Link href="/specialites/pediatre" className="hover:text-white transition">طبيب الأطفال في الجزائر</Link></li>
+                  <li><Link href="/specialites/ophtalmologue" className="hover:text-white transition">طبيب العيون في الجزائر</Link></li>
+                </ul>
+              </div>
+
+              {/* Colonne 4: B2B Cabinet */}
+              <div className="space-y-4">
+                <h3 className="text-white font-bold text-sm uppercase tracking-wider">هل أنت طبيب؟</h3>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  انضم إلى دليل الأطباء لزيادة وضوح عيادتك وتسهيل رعاية مرضاك.
+                </p>
+                <Link 
+                  href="/contact" 
+                  className="inline-block bg-[#1A87D8] hover:bg-[#1571b6] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-sm"
+                >
+                  تسجيل عيادتي
+                </Link>
+              </div>
+
+            </div>
+
+            {/* Sub-footer */}
+            <div className="border-t border-slate-800 mt-12 pt-10 flex flex-col items-center gap-6 text-center text-xs text-gray-300">
+              <div className="space-y-3">
+                <p className="font-medium">© 2026 دليل الأطباء — دليل الأطباء في الجزائر. جميع الحقوق محفوظة.</p>
+                <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                  دليل الأطباء ليس خدمة طوارئ. في حالات الطوارئ الطبية، اتصل بالرقم 14 أو 115.
+                </p>
+              </div>
+              <div className="flex justify-center gap-4 text-gray-400 pt-2">
+                <Link href="/a-propos" className="hover:text-white transition">اتفاقية الاستخدام</Link>
+                <span>•</span>
+                <Link href="/contact" className="hover:text-white transition">الدعم</Link>
+              </div>
+            </div>
           </div>
-          <p className="text-xs mt-6">© 2026 دليل الأطباء — جميع الحقوق محفوظة</p>
-        </div>
-      </footer>
-    </main>
+        </footer>
+      </main>
+    </>
   )
 }

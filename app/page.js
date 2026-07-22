@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import Link from 'next/link'
+import HeroSearchWrapper from './components/HeroSearchWrapper'
 
 export const revalidate = 3600 // Revalider toutes les heures
 
@@ -31,7 +32,7 @@ async function getStats() {
   // Avant : ~200ms + ~200ms + ~200ms = ~600ms séquentiels
   // Après : max(200ms, 200ms, 200ms) = ~200ms simultanés → gain ~400ms sur le TTFB
   const [
-    { count: totalDoctors },
+    { count: totalDoctorsRaw },
     { data: specialtiesRaw },
     { data: wilayasRaw },
   ] = await Promise.all([
@@ -65,6 +66,9 @@ async function getStats() {
   const wilayas = wilayasRaw
     ?.filter(w => (w.doctors?.[0]?.count ?? 0) > 0)
     .map(({ id, name_fr, slug }) => ({ id, name_fr, slug })) ?? []
+
+  // ✅ Fallback 0 : si Supabase retourne null (erreur réseau, table vide), on n'affiche pas "undefined"
+  const totalDoctors = totalDoctorsRaw ?? 0
 
   return { totalDoctors, specialties, wilayas }
 }
@@ -190,7 +194,7 @@ export default async function HomePage() {
         '@type': 'Organization',
         name: 'Dalil Atibaa',
         url: 'https://www.dalil-atibaa.com',
-        description: `Annuaire médical de référence en Algérie. ${totalDoctors} médecins référencés.`,
+        description: `Annuaire médical de référence en Algérie. ${totalDoctors || '+'} médecins référencés.`,
         areaServed: { '@type': 'Country', name: 'Algeria' },
       },
       {
@@ -205,98 +209,47 @@ export default async function HomePage() {
   }
 
   return (
-    <>
+    <main className="min-h-screen bg-gray-50">
+      {/* ✅ Hydration fix : script JSON-LD à l'intérieur du <main> — pas de Fragment nu à la racine */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <main className="min-h-screen bg-gray-50">
-
-        {/* HEADER */}
-        <header className="bg-white shadow-sm sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-            <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
-            </Link>
-            <div className="flex items-center gap-3">
-              
-              <Link href="/conseils"
-                className="hidden sm:flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 font-medium transition">
-                 Conseils
-              </Link>
-              <Link href="/recherche"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                Rechercher
-              </Link>
-            </div>
-          </div>
-        </header>
-
         {/* HERO */}
-        <section className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 text-white py-14 px-4 relative overflow-hidden">
+        <section style={{ backgroundColor: '#1A87D8' }} className="text-white pt-4 pb-12 px-4 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-x-1/3 translate-y-1/3 pointer-events-none" />
 
-          <div className="max-w-4xl mx-auto text-center relative">
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              Annuaire médical de référence en Algérie
-            </div>
+          {/* Navigation haute dans le Hero */}
+          <div className="max-w-6xl mx-auto flex justify-between items-center mb-8">
+            <Link href="/" className="inline-block">
+              <img 
+                src="/logo.svg" 
+                alt="Dalil Atibaa" 
+                width="200" 
+                height="44" 
+                style={{ 
+                  height: '36px', 
+                  width: 'auto', 
+                  filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+                }} 
+              />
+            </Link>
+          </div>
 
+          <div className="max-w-4xl mx-auto text-center relative">
             <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
               Trouvez votre médecin<br />
               <span className="text-blue-200">en Algérie</span>
             </h1>
             <p className="text-blue-100 text-lg mb-10">
-              Recherchez parmi les meilleurs médecins dans tous les  wilayas
+              {/* ✅ Bug #22 : double espace supprimé ("les  wilayas" → "les wilayas") */}
+              Recherchez parmi les meilleurs médecins dans tous les wilayas
+
             </p>
 
-            {/* FORMULAIRE */}
-            <form action="/recherche" method="GET"
-              className="bg-white rounded-2xl p-3 flex flex-col md:flex-row gap-3 shadow-2xl">
+            {/* FORMULAIRE + GPS (style Doctolib) */}
+            <HeroSearchWrapper specialties={specialties} wilayas={wilayas} />
 
-              <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3">
-                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input name="q" type="text" placeholder="Nom du médecin..."
-                  className="w-full text-gray-800 placeholder-gray-400 focus:outline-none text-sm bg-transparent" />
-              </div>
-
-              <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3">
-                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-                </svg>
-                <select name="specialite"
-                  className="w-full text-gray-700 focus:outline-none text-sm bg-transparent appearance-none cursor-pointer">
-                  <option value="">Spécialité</option>
-                  {specialties?.map(s => (
-                    <option key={s.id} value={s.slug}>{s.name_fr}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3">
-                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <select name="wilaya"
-                  className="w-full text-gray-700 focus:outline-none text-sm bg-transparent appearance-none cursor-pointer">
-                  <option value="">Wilaya</option>
-                  {wilayas?.map(w => (
-                    <option key={w.id} value={w.slug}>{w.name_fr}</option>
-                  ))}
-                </select>
-              </div>
-
-              <button type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition w-full md:w-auto whitespace-nowrap">
-                Rechercher
-              </button>
-            </form>
-
+            {/* Raccourcis spécialités */}
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {topSpecialties.slice(0, 5).map(s => (
                 <Link key={s.slug} href={`/specialites/${s.slug}`}
@@ -305,23 +258,38 @@ export default async function HomePage() {
                 </Link>
               ))}
             </div>
+
           </div>
         </section>
 
         {/* STATS */}
-        <section className="bg-white border-b border-gray-100">
-          <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-3xl font-bold text-blue-600">{totalDoctors?.toLocaleString()}</p>
-              <p className="text-gray-500 text-sm mt-1">Médecins</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-blue-600">{wilayas?.length || 0}</p>
-              <p className="text-gray-500 text-sm mt-1">Wilayas</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-blue-600">{specialties?.length || 0}</p>
-              <p className="text-gray-500 text-sm mt-1">Spécialités</p>
+        <section className="bg-white border-b border-gray-100 py-12 px-4">
+          <div className="max-w-6xl mx-auto text-center">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-8">
+              Votre santé, notre engagement au quotidien
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-4">
+              <div className="flex flex-col items-center">
+                <p style={{ color: '#1A87D8' }} className="text-4xl font-extrabold">
+                  {/* ✅ Fallback '+' : affiche quelque chose de positif même si le count échoue */}
+                  {totalDoctors > 0 ? totalDoctors.toLocaleString('fr-DZ') : '+'}
+                </p>
+                <p className="text-gray-600 text-sm mt-2 max-w-[240px]">
+                  soignants qui facilitent vos rendez-vous
+                </p>
+              </div>
+              <div className="flex flex-col items-center border-t border-b md:border-t-0 md:border-b-0 border-gray-100 py-6 md:py-0">
+                <p style={{ color: '#1A87D8' }} className="text-4xl font-extrabold">{wilayas?.length || 0}</p>
+                <p className="text-gray-600 text-sm mt-2 max-w-[240px]">
+                  wilayas où trouver un médecin proche de vous
+                </p>
+              </div>
+              <div className="flex flex-col items-center">
+                <p style={{ color: '#1A87D8' }} className="text-4xl font-extrabold">{specialties?.length || 0}</p>
+                <p className="text-gray-600 text-sm mt-2 max-w-[240px]">
+                  spécialités pour prendre soin de votre famille
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -336,7 +304,7 @@ export default async function HomePage() {
               {topSpecialties.map(s => (
                 <Link key={s.id} href={`/specialites/${s.slug}`}
                   className="bg-white rounded-xl p-4 text-center shadow-sm hover:shadow-md hover:border-blue-400 border border-gray-100 transition group">
-                  <div className="w-10 h-10 bg-blue-50 group-hover:bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 mx-auto mb-2 transition">
+                  <div style={{ backgroundColor: '#e8f4fc', color: '#1A87D8' }} className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 transition">
                     {specialtyIcons[s.slug] || (
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
@@ -380,17 +348,19 @@ export default async function HomePage() {
                 <div key={spSlug} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                   {/* En-tête spécialité */}
                   <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50 bg-gradient-to-r from-gray-50 to-white">
-                    <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                    <div style={{ backgroundColor: '#1A87D8' }} className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M12 12v3m0 0v3m0-3h3m-3 0H9" />
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-gray-800 text-sm">Meilleurs {name}</p>
-                      <p className="text-xs text-gray-400">{wList.length} ville{wList.length > 1 ? 's' : ''} disponible{wList.length > 1 ? 's' : ''}</p>
+                      <p className="text-xs text-gray-500">{wList.length} ville{wList.length > 1 ? 's' : ''} disponible{wList.length > 1 ? 's' : ''}</p>
                     </div>
                     <Link href={`/specialites/${spSlug}`}
-                      className="text-xs text-blue-600 hover:underline font-medium shrink-0">
+                      aria-label={`Voir tous les médecins ${name}`}
+                      style={{ color: '#1A87D8' }}
+                      className="text-xs hover:underline font-medium shrink-0">
                       Voir tous →
                     </Link>
                   </div>
@@ -401,16 +371,17 @@ export default async function HomePage() {
                       <Link
                         key={w.slug}
                         href={`/meilleurs/${spSlug}-${w.slug}`}
+                        aria-label={`Voir les meilleurs ${name} à ${w.name}`}
                         className="flex items-center gap-2.5 px-4 py-3.5 hover:bg-blue-50 transition group"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shrink-0 shadow-sm">
+                        <div style={{ backgroundColor: '#1A87D8' }} className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
                           <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           </svg>
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition truncate">{w.name}</p>
-                          <p className="text-xs text-gray-400 group-hover:text-blue-500 transition">Voir la liste →</p>
+                          <p className="text-xs text-gray-500 group-hover:text-blue-500 transition" aria-hidden="true">Voir la liste →</p>
                         </div>
                       </Link>
                     ))}
@@ -431,9 +402,10 @@ export default async function HomePage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                 {popularWilayas.map(w => (
                   <Link key={w.slug} href={`/wilayas/${w.slug}`}
+                    aria-label={`Voir les médecins à ${w.name_fr}`}
                     className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 text-center hover:from-blue-100 hover:to-indigo-100 hover:border-blue-300 transition group">
                     <p className="font-semibold text-gray-800 group-hover:text-blue-700 transition">{w.name_fr}</p>
-                    <p className="text-xs text-blue-500 mt-1">Voir les médecins →</p>
+                    <p className="text-xs text-blue-500 mt-1" aria-hidden="true">Voir les médecins →</p>
                   </Link>
                 ))}
               </div>
@@ -463,7 +435,7 @@ export default async function HomePage() {
               { step: '3', title: 'Contactez', desc: 'Appelez directement le cabinet ou écrivez sur WhatsApp pour prendre RDV.', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg> },
             ].map((item, i) => (
               <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
-                <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mx-auto mb-4">
+                <div style={{ backgroundColor: '#e8f4fc', color: '#1A87D8' }} className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   {item.icon}
                 </div>
                 <div className="text-xs font-bold text-blue-500 mb-2">ÉTAPE {item.step}</div>
@@ -497,32 +469,87 @@ export default async function HomePage() {
         </section>
 
         {/* FOOTER */}
-        <footer className="bg-gray-900 text-gray-400 py-10">
+        <footer style={{ backgroundColor: '#0f172a' }} className="text-gray-400 py-16 border-t border-gray-800">
           <div className="max-w-6xl mx-auto px-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
-                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <span className="text-white font-bold text-lg">Dalil Atibaa</span>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12 text-left">
+              
+              {/* Colonne 1: À Propos */}
+              <div className="space-y-4">
+                <Link href="/" className="inline-block">
+                  <img 
+                    src="/logo.svg" 
+                    alt="Dalil Atibaa" 
+                    width="180" 
+                    height="40" 
+                    style={{ 
+                      height: '32px', 
+                      width: 'auto', 
+                      filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+                    }} 
+                  />
+                </Link>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Le premier annuaire médical en Algérie. Trouvez un professionnel de santé proche de chez vous et facilitez vos démarches de soin au quotidien.
+                </p>
               </div>
-              <div className="flex gap-6 text-sm flex-wrap justify-center">
-  <Link href="/" className="hover:text-white transition">Accueil</Link>
-  <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
-  <Link href="/conseils" className="hover:text-white transition">Conseils</Link>
-  <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
-  <Link href="/contact" className="hover:text-white transition">Contact</Link>
-</div>
+
+              {/* Colonne 2: Liens Utiles */}
+              <div className="space-y-3">
+                <h3 className="text-white font-bold text-sm uppercase tracking-wider">Liens Utiles</h3>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li><Link href="/" className="hover:text-white transition">Accueil</Link></li>
+                  <li><Link href="/recherche" className="hover:text-white transition">Recherche avancée</Link></li>
+                  <li><Link href="/conseils" className="hover:text-white transition">Conseils Médicaux</Link></li>
+                  <li><Link href="/a-propos" className="hover:text-white transition">À propos de nous</Link></li>
+                  <li><Link href="/contact" className="hover:text-white transition">Nous contacter</Link></li>
+                </ul>
+              </div>
+
+              {/* Colonne 3: Spécialités populaires */}
+              <div className="space-y-3">
+                <h3 className="text-white font-bold text-sm uppercase tracking-wider">Spécialités Populaires</h3>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li><Link href="/specialites/dentiste" className="hover:text-white transition">Dentiste en Algérie</Link></li>
+                  <li><Link href="/specialites/gynecologue" className="hover:text-white transition">Gynécologue en Algérie</Link></li>
+                  <li><Link href="/specialites/cardiologue" className="hover:text-white transition">Cardiologue en Algérie</Link></li>
+                  <li><Link href="/specialites/pediatre" className="hover:text-white transition">Pédiatre en Algérie</Link></li>
+                  <li><Link href="/specialites/ophtalmologue" className="hover:text-white transition">Ophtalmologue en Algérie</Link></li>
+                </ul>
+              </div>
+
+              {/* Colonne 4: B2B Cabinet */}
+              <div className="space-y-4">
+                <h3 className="text-white font-bold text-sm uppercase tracking-wider">Vous êtes médecin ?</h3>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Rejoignez Dalil Atibaa pour augmenter la visibilité de votre cabinet et simplifier l'accès aux soins de vos patients.
+                </p>
+                <Link 
+                  href="/contact" 
+                  className="inline-block bg-[#1A87D8] hover:bg-[#1571b6] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-sm"
+                >
+                  Inscrire mon cabinet
+                </Link>
+              </div>
+
             </div>
-            <div className="border-t border-gray-800 pt-6 text-center text-sm">
-              <p>© 2026 Dalil Atibaa — Annuaire des médecins en Algérie</p>
+
+            {/* Sub-footer */}
+            <div className="border-t border-slate-800 mt-12 pt-10 flex flex-col items-center gap-6 text-center text-xs text-gray-300">
+              <div className="space-y-3">
+                <p className="font-medium">© 2026 Dalil Atibaa — Annuaire des médecins en Algérie. Tous droits réservés.</p>
+                <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                  Dalil Atibaa n'est pas un service d'urgence. En cas d'urgence médicale, contactez le 14 ou le 115.
+                </p>
+              </div>
+              <div className="flex justify-center gap-4 text-gray-400 pt-2">
+                <Link href="/a-propos" className="hover:text-white transition">Mentions légales</Link>
+                <span>•</span>
+                <Link href="/contact" className="hover:text-white transition">Support</Link>
+              </div>
             </div>
           </div>
         </footer>
 
       </main>
-    </>
   )
-}
+}

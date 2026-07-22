@@ -91,11 +91,11 @@ function LoginScreen({ onLogin }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-400/30">
+          <div style={{ backgroundColor: 'rgba(26, 135, 216, 0.2)', borderColor: 'rgba(26, 135, 216, 0.3)' }} className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border">
             <span className="text-3xl">📊</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Statistiques</h1>
-          <p className="text-blue-200 text-sm mt-1">Dalil Atibaa — Admin</p>
+          <p style={{ color: '#e8f4fc' }} className="text-sm mt-1">Dalil Atibaa — Admin</p>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <input
@@ -112,7 +112,8 @@ function LoginScreen({ onLogin }) {
           {err && <p className="text-red-300 text-sm text-center">{err}</p>}
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-semibold transition shadow-lg shadow-blue-900/40"
+            style={{ backgroundColor: '#1E293B' }}
+            className="w-full hover:opacity-90 text-white py-3 rounded-xl font-semibold transition shadow-lg"
           >
             Accéder →
           </button>
@@ -716,7 +717,8 @@ export default function StatsDashboard() {
               <button
                 onClick={exportCsv}
                 disabled={rows.length === 0}
-                className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm px-3.5 py-2 rounded-xl font-medium transition disabled:opacity-50 disabled:pointer-events-none"
+                style={{ backgroundColor: '#1E293B' }}
+                className="flex items-center gap-1.5 hover:opacity-90 text-white text-sm px-3.5 py-2 rounded-xl font-medium transition disabled:opacity-50 disabled:pointer-events-none"
               >
                 <span>📥</span> Export CSV
               </button>

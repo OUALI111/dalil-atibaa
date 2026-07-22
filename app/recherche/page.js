@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
+import HeroSearchWrapper from '../components/HeroSearchWrapper'
 
 export async function generateMetadata({ searchParams }) {
   const params = await searchParams
@@ -43,54 +44,115 @@ export async function generateMetadata({ searchParams }) {
   }
 }
 
-async function getDoctorsWithCache({ q, specialite, wilaya, page = 0 }) {
+// ✅ CORRECTION BUG CACHE : unstable_cache doit être instancié au niveau MODULE,
+// pas à l'intérieur d'une fonction appelée à chaque requête.
+// On utilise un Map pour mémoriser une instance de fonction cachée par clé unique.
+// Ainsi, deux visiteurs qui cherchent "dentiste à Alger" partagent le même cache.
+const searchCacheRegistry = new Map()
+
+function getCachedSearch(cacheKey, fetcher) {
+  if (!searchCacheRegistry.has(cacheKey)) {
+    const cachedFn = unstable_cache(
+      fetcher,
+      [cacheKey],
+      { revalidate: 3600, tags: ['doctors', cacheKey] }
+    )
+    searchCacheRegistry.set(cacheKey, cachedFn)
+  }
+  return searchCacheRegistry.get(cacheKey)
+}
+
+async function getDoctorsWithCache({ q, specialite, wilaya, page = 0, lat, lng }) {
+  const isGps = lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))
+
+  // Si on est en mode GPS, on court-circuite le cache (coordonnées GPS trop uniques)
+  if (isGps) {
+    const userLat = parseFloat(lat)
+    const userLng = parseFloat(lng)
+    const pageSize = 24
+
+    // Résoudre l'id de la spécialité si présente
+    let specId = null
+    if (specialite) {
+      const { data: spec } = await supabase
+        .from('specialties').select('id').eq('slug', specialite).single()
+      if (spec) specId = spec.id
+    }
+
+    const { data: rpcData, error } = await supabase.rpc('doctors_nearby', {
+      user_lat: userLat,
+      user_lng: userLng,
+      radius_km: 50,
+      specialty_filter: specId,
+      result_limit: pageSize,
+      result_offset: page * pageSize
+    })
+
+    if (error) {
+      console.error("Erreur RPC doctors_nearby :", error)
+      return { doctors: [], total: 0, pageSize }
+    }
+
+    const formatted = (rpcData || []).map(doc => ({
+      id: doc.id,
+      name_fr: doc.name_fr,
+      slug: doc.slug,
+      address: doc.address,
+      phone: doc.phone,
+      rating: doc.rating,
+      distance_km: doc.distance_km,
+      specialties: { name_fr: doc.specialty_name },
+      wilayas: { name_fr: doc.wilaya_name }
+    }))
+
+    return { doctors: formatted, total: formatted.length, pageSize }
+  }
+
+  // ✅ Mode recherche normale : on utilise le cache registry au niveau module
   const cacheKey = `search-${q}-${specialite}-${wilaya}-${page}`
 
-  const cachedFn = unstable_cache(
-    async () => {
-      const pageSize = 24
-      const from = page * pageSize
-      const to = from + pageSize - 1
+  const cachedFn = getCachedSearch(cacheKey, async () => {
+    const pageSize = 24
+    const from = page * pageSize
+    const to = from + pageSize - 1
 
-      let query = supabase
-        .from('doctors')
-        .select(`
-          id, name_fr, slug, address, phone, rating,
-          specialties(name_fr, slug),
-          wilayas(name_fr, slug)
-        `, { count: 'exact' })
-        .eq('is_active', true)
-        .order('rating', { ascending: false })
-        .range(from, to)
+    let query = supabase
+      .from('doctors')
+      .select(`
+        id, name_fr, slug, address, phone, rating,
+        specialties(name_fr, slug),
+        wilayas(name_fr, slug)
+      `, { count: 'exact' })
+      .eq('is_active', true)
+      .order('rating', { ascending: false })
+      .range(from, to)
 
-      if (q) {
-        query = query.textSearch('search_vector', q, {
-          type: 'websearch',
-          config: 'french'
-        })
-      }
+    if (q) {
+      query = query.textSearch('search_vector', q, {
+        type: 'websearch',
+        config: 'french'
+      })
+    }
 
-      if (specialite) {
-        const { data: spec } = await supabase
-          .from('specialties').select('id').eq('slug', specialite).single()
-        if (spec) query = query.eq('specialty_id', spec.id)
-      }
+    if (specialite) {
+      const { data: spec } = await supabase
+        .from('specialties').select('id').eq('slug', specialite).single()
+      if (spec) query = query.eq('specialty_id', spec.id)
+    }
 
-      if (wilaya) {
-        const { data: wil } = await supabase
-          .from('wilayas').select('id').eq('slug', wilaya).single()
-        if (wil) query = query.eq('wilaya_id', wil.id)
-      }
+    if (wilaya) {
+      const { data: wil } = await supabase
+        .from('wilayas').select('id').eq('slug', wilaya).single()
+      if (wil) query = query.eq('wilaya_id', wil.id)
+    }
 
-      const { data, count } = await query
-      return { doctors: data || [], total: count || 0, pageSize }
-    },
-    [cacheKey],
-    { revalidate: 3600, tags: ['doctors', cacheKey] }
-  )
+    const { data, count } = await query
+    return { doctors: data || [], total: count || 0, pageSize }
+  })
 
   return cachedFn()
 }
+
 
 const getFilters = unstable_cache(
   async () => {
@@ -121,10 +183,12 @@ export default async function RecherchePage({ searchParams }) {
   const q = params?.q || ''
   const specialite = params?.specialite || ''
   const wilaya = params?.wilaya || ''
+  const lat = params?.lat || ''
+  const lng = params?.lng || ''
   const page = parseInt(params?.page || '0')
 
   const [{ doctors, total, pageSize }, { specialties, wilayas }] = await Promise.all([
-    getDoctorsWithCache({ q, specialite, wilaya, page }),
+    getDoctorsWithCache({ q, specialite, wilaya, page, lat, lng }),
     getFilters()
   ])
 
@@ -133,80 +197,35 @@ export default async function RecherchePage({ searchParams }) {
   return (
     <main className="min-h-screen bg-gray-50">
 
-      {/* ═══ HEADER ═══ */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
-          </Link>
-          <Link href="/"
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Accueil
+      {/* ═══ BARRE DE RECHERCHE (HeroSearch avec GPS intégré) ═══ */}
+      <div style={{ backgroundColor: '#1A87D8' }} className="py-5 px-4">
+        <div className="max-w-6xl mx-auto mb-5">
+          <Link href="/" className="inline-block">
+            <img 
+              src="/logo.svg" 
+              alt="Dalil Atibaa" 
+              width="200" 
+              height="44" 
+              style={{ 
+                height: '36px', 
+                width: 'auto', 
+                filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+              }} 
+            />
           </Link>
         </div>
-      </header>
-
-      {/* ═══ BARRE DE RECHERCHE MOBILE RESPONSIVE ═══ */}
-      <div className="bg-gradient-to-r from-blue-700 to-blue-600 py-5 px-4">
-        <form action="/recherche" method="GET"
-          className="max-w-4xl mx-auto bg-white rounded-2xl p-3 flex flex-col md:flex-row gap-3 shadow-xl">
-
-          {/* Input nom */}
-          <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3">
-            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              name="q"
-              defaultValue={q}
-              type="text"
-              placeholder="Nom du médecin..."
-              className="w-full text-gray-800 placeholder-gray-400 focus:outline-none text-sm bg-transparent"
-            />
-          </div>
-
-          {/* Select spécialité */}
-          <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3">
-            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-            </svg>
-            <select name="specialite" defaultValue={specialite}
-              className="w-full text-gray-700 focus:outline-none text-sm bg-transparent appearance-none cursor-pointer">
-              <option value="">Spécialité</option>
-              {specialties?.map(s => (
-                <option key={s.id} value={s.slug}>{s.name_fr}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Select wilaya */}
-          <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-4 py-3">
-            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <select name="wilaya" defaultValue={wilaya}
-              className="w-full text-gray-700 focus:outline-none text-sm bg-transparent appearance-none cursor-pointer">
-              <option value="">Wilaya</option>
-              {wilayas?.map(w => (
-                <option key={w.id} value={w.slug}>{w.name_fr}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Bouton */}
-          <button type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition w-full md:w-auto whitespace-nowrap">
-            Rechercher
-          </button>
-        </form>
+        <div className="max-w-4xl mx-auto">
+          <HeroSearchWrapper
+            specialties={specialties}
+            wilayas={wilayas}
+            defaultSpecialty={specialite}
+            defaultWilaya={wilaya}
+          />
+        </div>
       </div>
 
       {/* ═══ RÉSULTATS ═══ */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div id="static-results-container" className="max-w-6xl mx-auto px-4 py-8">
 
         <h1 className="text-2xl font-bold text-gray-800 mb-1">
           {specialite && wilaya
@@ -239,14 +258,16 @@ export default async function RecherchePage({ searchParams }) {
                 <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 p-5 h-full flex flex-col">
 
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    <div style={{ backgroundColor: '#1A87D8' }} className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0">
                       {doctor.name_fr?.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h2 className="font-semibold text-gray-800 truncate text-sm">
+                      {/* ✅ Bug #20 : <p> au lieu de <h2> — 24 <h2> sur une page dilue le SEO.
+                          La page a déjà un <h1> unique. Les noms de médecins sont des données, pas des titres de section. */}
+                      <p className="font-semibold text-gray-800 truncate text-sm">
                         {doctor.name_fr}
-                      </h2>
-                      <p className="text-blue-600 text-xs font-medium">
+                      </p>
+                      <p style={{ color: '#1A87D8' }} className="text-xs font-medium">
                         {doctor.specialties?.name_fr}
                       </p>
                     </div>
@@ -261,7 +282,19 @@ export default async function RecherchePage({ searchParams }) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         </svg>
                         {doctor.wilayas.name_fr}
-                        {doctor.address && ` — ${doctor.address.substring(0, 30)}...`}
+                        {/* ✅ Bug #24 : troncature conditionnelle — pas de '...' si l'adresse est courte */}
+                        {doctor.address && (doctor.address.length > 30
+                          ? ` — ${doctor.address.substring(0, 30)}…`
+                          : ` — ${doctor.address}`)}
+                      </p>
+                    )}
+                    {doctor.distance_km !== undefined && (
+                      <p className="text-emerald-600 text-xs font-bold flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="22" y1="2" x2="11" y2="13" />
+                          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                        À {doctor.distance_km < 1 ? `${Math.round(doctor.distance_km * 1000)} m` : `${doctor.distance_km.toFixed(1)} km`} de vous
                       </p>
                     )}
                     {doctor.phone && (
@@ -275,7 +308,7 @@ export default async function RecherchePage({ searchParams }) {
                   </div>
 
                   <div className="mt-4">
-                    <span className="block w-full text-center bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-sm font-medium transition">
+                    <span style={{ backgroundColor: '#1E293B' }} className="block w-full text-center hover:opacity-90 text-white py-2 rounded-lg text-sm font-medium transition">
                       Voir le profil →
                     </span>
                   </div>
@@ -286,34 +319,35 @@ export default async function RecherchePage({ searchParams }) {
           </div>
         )}
 
-        {/* ═══ PAGINATION ═══ */}
+        {/* ✅ PAGINATION avec <Link> Next.js : prefetch automatique au survol → navigation quasi-instantanée */}
         {totalPages > 1 && (
           <div className="flex justify-center gap-2 mt-8 flex-wrap">
             {page > 0 && (
-              <a href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${page - 1}`}
+              <Link href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${page - 1}`}
                 className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition text-sm">
                 ← Précédent
-              </a>
+              </Link>
             )}
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
               const pageNum = Math.max(0, Math.min(page - 2, totalPages - 5)) + i
               return (
-                <a key={pageNum}
+                <Link key={pageNum}
                   href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${pageNum}`}
+                  style={pageNum === page ? { backgroundColor: '#1A87D8', borderColor: '#1A87D8' } : {}}
                   className={`px-4 py-2 rounded-xl border transition text-sm ${
                     pageNum === page
-                      ? 'bg-blue-600 text-white border-blue-600'
+                      ? 'text-white'
                       : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50'
                   }`}>
                   {pageNum + 1}
-                </a>
+                </Link>
               )
             })}
             {page < totalPages - 1 && (
-              <a href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${page + 1}`}
+              <Link href={`/recherche?q=${q}&specialite=${specialite}&wilaya=${wilaya}&page=${page + 1}`}
                 className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition text-sm">
                 Suivant →
-              </a>
+              </Link>
             )}
           </div>
         )}
@@ -341,8 +375,9 @@ export default async function RecherchePage({ searchParams }) {
               { q: 'Comment prendre rendez-vous ?', a: 'Cliquez sur la fiche du médecin pour voir son numéro de téléphone et prendre rendez-vous directement.' },
               { q: 'Les informations sont-elles à jour ?', a: 'Nous mettons régulièrement à jour notre base de données pour garantir des informations fiables.' },
               { q: 'Puis-je ajouter mon cabinet ?', a: 'Oui, contactez-nous pour référencer votre cabinet médical sur Dalil Atibaa.' },
-            ].map((item, i) => (
-              <div key={i} className="bg-gray-50 rounded-xl p-4">
+            ].map((item) => (
+              // ✅ key stable : la question est unique et invariante
+              <div key={item.q} className="bg-gray-50 rounded-xl p-4">
                 <p className="font-semibold text-gray-700 mb-1 text-sm">{item.q}</p>
                 <p className="text-gray-500 text-xs leading-relaxed">{item.a}</p>
               </div>
@@ -351,15 +386,86 @@ export default async function RecherchePage({ searchParams }) {
         </div>
       </div>
 
-      {/* ═══ FOOTER ═══ */}
-      <footer className="bg-gray-900 text-gray-400 py-8 text-center text-sm mt-8">
-        <div className="flex gap-6 justify-center mb-3 flex-wrap">
-          <Link href="/" className="hover:text-white transition">Accueil</Link>
-          <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
-          <Link href="/a-propos" className="hover:text-white transition">À propos</Link>
-          <Link href="/contact" className="hover:text-white transition">Contact</Link>
+      {/* FOOTER */}
+      <footer style={{ backgroundColor: '#0f172a' }} className="text-gray-400 py-16 border-t border-gray-800 mt-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12 text-left">
+            
+            {/* Colonne 1: À Propos */}
+            <div className="space-y-4">
+              <Link href="/" className="inline-block">
+                <img 
+                  src="/logo.svg" 
+                  alt="Dalil Atibaa" 
+                  width="180" 
+                  height="40" 
+                  style={{ 
+                    height: '32px', 
+                    width: 'auto', 
+                    filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+                  }} 
+                />
+              </Link>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                Le premier annuaire médical en Algérie. Trouvez un professionnel de santé proche de chez vous et facilitez vos démarches de soin au quotidien.
+              </p>
+            </div>
+
+            {/* Colonne 2: Liens Utiles */}
+            <div className="space-y-3">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">Liens Utiles</h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li><Link href="/" className="hover:text-white transition">Accueil</Link></li>
+                <li><Link href="/recherche" className="hover:text-white transition">Recherche avancée</Link></li>
+                <li><Link href="/conseils" className="hover:text-white transition">Conseils Médicaux</Link></li>
+                <li><Link href="/a-propos" className="hover:text-white transition">À propos de nous</Link></li>
+                <li><Link href="/contact" className="hover:text-white transition">Nous contacter</Link></li>
+              </ul>
+            </div>
+
+            {/* Colonne 3: Spécialités populaires */}
+            <div className="space-y-3">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">Spécialités Populaires</h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li><Link href="/specialites/dentiste" className="hover:text-white transition">Dentiste en Algérie</Link></li>
+                <li><Link href="/specialites/gynecologue" className="hover:text-white transition">Gynécologue en Algérie</Link></li>
+                <li><Link href="/specialites/cardiologue" className="hover:text-white transition">Cardiologue en Algérie</Link></li>
+                <li><Link href="/specialites/pediatre" className="hover:text-white transition">Pédiatre en Algérie</Link></li>
+                <li><Link href="/specialites/ophtalmologue" className="hover:text-white transition">Ophtalmologue en Algérie</Link></li>
+              </ul>
+            </div>
+
+            {/* Colonne 4: B2B Cabinet */}
+            <div className="space-y-4">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">Vous êtes médecin ?</h3>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                Rejoignez Dalil Atibaa pour augmenter la visibilité de votre cabinet et simplifier l'accès aux soins de vos patients.
+              </p>
+              <Link 
+                href="/contact" 
+                className="inline-block bg-[#1A87D8] hover:bg-[#1571b6] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-sm"
+              >
+                Inscrire mon cabinet
+              </Link>
+            </div>
+
+          </div>
+
+          {/* Sub-footer */}
+          <div className="border-t border-slate-800 mt-12 pt-10 flex flex-col items-center gap-6 text-center text-xs text-gray-300">
+            <div className="space-y-3">
+              <p className="font-medium">© 2026 Dalil Atibaa — Annuaire des médecins en Algérie. Tous droits réservés.</p>
+              <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                Dalil Atibaa n'est pas un service d'urgence. En cas d'urgence médicale, contactez le 14 ou le 115.
+              </p>
+            </div>
+            <div className="flex justify-center gap-4 text-gray-400 pt-2">
+              <Link href="/a-propos" className="hover:text-white transition">Mentions légales</Link>
+              <span>•</span>
+              <Link href="/contact" className="hover:text-white transition">Support</Link>
+            </div>
+          </div>
         </div>
-        <p>© 2026 Dalil Atibaa — Annuaire des médecins en Algérie</p>
       </footer>
 
     </main>

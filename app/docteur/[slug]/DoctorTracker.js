@@ -75,6 +75,14 @@ export default function DoctorTracker({ doctorId }) {
   useEffect(() => {
     if (doctorId) {
       trackEvent(doctorId, 'view')
+
+      // ✅ PWA Étape 5 — Signal d'engagement fort : l'utilisateur a consulté une fiche médecin
+      // Délai 5s : laisser le temps à l'utilisateur de lire la fiche avant d'afficher le banner
+      const timer = setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('doctor-viewed', { detail: { doctorId } }))
+      }, 5000)
+
+      return () => clearTimeout(timer)
     }
   }, [doctorId])
 

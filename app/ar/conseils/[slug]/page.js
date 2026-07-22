@@ -99,39 +99,38 @@ export default async function ConseilArPage({ params }) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50" dir="rtl">
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <main className="min-h-screen bg-gray-50" dir="rtl">
 
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
-           <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
+      <header style={{ backgroundColor: '#1A87D8' }} className="sticky top-0 z-50 py-4 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 flex justify-between items-center">
+          <Link href="/">
+            <img 
+              src="/logo.svg" 
+              alt="دليل الأطباء" 
+              width="200" 
+              height="44" 
+              style={{ 
+                height: '36px', 
+                width: 'auto', 
+                filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+              }} 
+            />
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/ar/conseils" className="hidden sm:block text-sm text-gray-600 hover:text-blue-600 transition">
-              نصائح طبية
-            </Link>
-            <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+            <Link 
+              href="/recherche" 
+              className="bg-white text-blue-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow-sm"
+            >
               ابحث عن طبيب
             </Link>
           </div>
         </div>
       </header>
-
-      <div className="max-w-6xl mx-auto px-4 py-3 text-sm text-gray-400 flex gap-2 items-center flex-wrap">
-        <Link href="/" className="hover:text-blue-600 transition">الرئيسية</Link>
-        <span>›</span>
-        <Link href="/ar/conseils" className="hover:text-blue-600 transition">نصائح طبية</Link>
-        <span>›</span>
-        <Link href={`/specialites/${conseil.specialties?.slug}`} className="hover:text-blue-600 transition">
-          {conseil.specialties?.name_fr}
-        </Link>
-        <span>›</span>
-        <span className="text-gray-600 truncate max-w-xs">{conseil.question_ar}</span>
-      </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
@@ -139,7 +138,7 @@ export default async function ConseilArPage({ params }) {
 
           <article className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-8 text-white">
+            <div style={{ backgroundColor: '#1A87D8' }} className="p-8 text-white">
               <div className="flex items-center gap-2 mb-4">
                 <span className="bg-white/20 text-white text-xs font-medium px-3 py-1 rounded-full">
                   {conseil.specialties?.name_fr}
@@ -175,7 +174,7 @@ export default async function ConseilArPage({ params }) {
 
             <div className="mx-8 mb-8 bg-blue-50 border border-blue-100 rounded-2xl p-6">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                <div style={{ backgroundColor: '#1A87D8' }} className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -261,7 +260,7 @@ export default async function ConseilArPage({ params }) {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white sticky top-20">
+          <div style={{ backgroundColor: '#1A87D8' }} className="rounded-2xl p-6 text-white sticky top-20">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -310,19 +309,88 @@ export default async function ConseilArPage({ params }) {
         </div>
       </div>
 
-      <footer className="bg-gray-900 text-gray-400 py-10 mt-12">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="font-bold text-white text-lg mb-2">دليل الأطباء</p>
-          <p className="text-sm mb-4">دليل الأطباء في الجزائر</p>
-          <div className="flex justify-center gap-6 text-sm flex-wrap">
-            <Link href="/" className="hover:text-white transition">الرئيسية</Link>
-            <Link href="/ar/conseils" className="hover:text-white transition">نصائح طبية</Link>
-            <Link href="/recherche" className="hover:text-white transition">بحث</Link>
-            <Link href="/contact" className="hover:text-white transition">اتصل بنا</Link>
+      {/* FOOTER */}
+      <footer style={{ backgroundColor: '#0f172a' }} className="text-gray-400 py-16 border-t border-gray-800 mt-12 text-right">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+            
+            {/* Colonne 1: À Propos */}
+            <div className="space-y-4">
+              <Link href="/" className="inline-block">
+                <img 
+                  src="/logo.svg" 
+                  alt="دليل الأطباء" 
+                  width="180" 
+                  height="40" 
+                  style={{ 
+                    height: '32px', 
+                    width: 'auto', 
+                    filter: 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.95))' 
+                  }} 
+                />
+              </Link>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                دليل الأطباء الأول في الجزائر. ابحث عن طبيب قريب منك وسهل خطوات علاجك اليومية.
+              </p>
+            </div>
+
+            {/* Colonne 2: Liens Utiles */}
+            <div className="space-y-3">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">روابط مفيدة</h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li><Link href="/" className="hover:text-white transition">الرئيسية</Link></li>
+                <li><Link href="/recherche" className="hover:text-white transition">البحث المتقدم</Link></li>
+                <li><Link href="/ar/conseils" className="hover:text-white transition">نصائح طبية</Link></li>
+                <li><Link href="/a-propos" className="hover:text-white transition">من نحن</Link></li>
+                <li><Link href="/contact" className="hover:text-white transition">اتصل بنا</Link></li>
+              </ul>
+            </div>
+
+            {/* Colonne 3: Spécialités populaires */}
+            <div className="space-y-3">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">تخصصات شائعة</h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li><Link href="/specialites/dentiste" className="hover:text-white transition">طبيب أسنان في الجزائر</Link></li>
+                <li><Link href="/specialites/gynecologue" className="hover:text-white transition">طبيب النساء في الجزائر</Link></li>
+                <li><Link href="/specialites/cardiologue" className="hover:text-white transition">طبيب القلب في الجزائر</Link></li>
+                <li><Link href="/specialites/pediatre" className="hover:text-white transition">طبيب الأطفال في الجزائر</Link></li>
+                <li><Link href="/specialites/ophtalmologue" className="hover:text-white transition">طبيب العيون في الجزائر</Link></li>
+              </ul>
+            </div>
+
+            {/* Colonne 4: B2B Cabinet */}
+            <div className="space-y-4">
+              <h3 className="text-white font-bold text-sm uppercase tracking-wider">هل أنت طبيب؟</h3>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                انضم إلى دليل الأطباء لزيادة وضوح عيادتك وتسهيل رعاية مرضاك.
+              </p>
+              <Link 
+                href="/contact" 
+                className="inline-block bg-[#1A87D8] hover:bg-[#1571b6] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-sm"
+              >
+                تسجيل عيادتي
+              </Link>
+            </div>
+
           </div>
-          <p className="text-xs mt-6">© 2026 دليل الأطباء — جميع الحقوق محفوظة</p>
+
+          {/* Sub-footer */}
+          <div className="border-t border-slate-800 mt-12 pt-10 flex flex-col items-center gap-6 text-center text-xs text-gray-300">
+            <div className="space-y-3">
+              <p className="font-medium">© 2026 دليل الأطباء — دليل الأطباء في الجزائر. جميع الحقوق محفوظة.</p>
+              <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                دليل الأطباء ليس خدمة طوارئ. في حالات الطوارئ الطبية، اتصل بالرقم 14 أو 115.
+              </p>
+            </div>
+            <div className="flex justify-center gap-4 text-gray-400 pt-2">
+              <Link href="/a-propos" className="hover:text-white transition">اتفاقية الاستخدام</Link>
+              <span>•</span>
+              <Link href="/contact" className="hover:text-white transition">الدعم</Link>
+            </div>
+          </div>
         </div>
       </footer>
-    </main>
+      </main>
+    </>
   )
 }

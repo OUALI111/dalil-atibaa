@@ -1,12 +1,29 @@
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
+import SiteHeader from '../components/SiteHeader'
+import SiteFooter from '../components/SiteFooter'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// ✅ ISR 1h : les conseils changent rarement, inutile de recalculer à chaque visite
+export const revalidate = 3600
 
 export const metadata = {
   title: 'Conseils Médicaux en Algérie | Dalil Atibaa',
   description: 'Trouvez des réponses à vos questions médicales et consultez les meilleurs médecins en Algérie.',
+  // ✅ Bug #17 : canonical manquant — sans lui, Google peut indexer plusieurs variantes de l'URL
+  alternates: {
+    canonical: 'https://www.dalil-atibaa.com/conseils',
+    languages: {
+      'fr': 'https://www.dalil-atibaa.com/conseils',
+      'ar': 'https://www.dalil-atibaa.com/ar/conseils',
+      'x-default': 'https://www.dalil-atibaa.com/conseils',
+    }
+  },
+  openGraph: {
+    title: 'Conseils Médicaux en Algérie | Dalil Atibaa',
+    description: 'Trouvez des réponses à vos questions médicales et consultez les meilleurs médecins en Algérie.',
+    url: 'https://www.dalil-atibaa.com/conseils',
+    type: 'website',
+  }
 }
 
 export default async function ConseillsPage() {
@@ -19,21 +36,8 @@ export default async function ConseillsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Dalil Atibaa" width="200" height="44" className="h-9 w-auto" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/ar/conseils" className="hidden sm:block text-sm text-gray-600 hover:text-blue-600 transition">
-              🇩🇿 عربي
-            </Link>
-            <Link href="/recherche" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
-              Trouver un médecin
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* ✅ Bug #26 : SiteHeader partagé — plus de duplication */}
+      <SiteHeader currentPath="/conseils" />
 
       <div className="max-w-6xl mx-auto px-4 py-10">
         <div className="mb-8">
@@ -45,11 +49,11 @@ export default async function ConseillsPage() {
           {conseils?.map(c => (
             <Link key={c.slug} href={`/conseils/${c.slug}`}>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 hover:border-blue-200 hover:shadow-md transition h-full">
-                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                <span style={{ color: '#1A87D8', backgroundColor: '#e8f4fc' }} className="text-xs font-medium px-3 py-1 rounded-full">
                   {c.specialties?.name_fr}
                 </span>
                 <p className="mt-3 font-semibold text-gray-800 leading-snug">{c.question_fr}</p>
-                <p className="mt-3 text-sm text-blue-600 font-medium">Lire la réponse →</p>
+                <p style={{ color: '#1A87D8' }} className="mt-3 text-sm font-medium">Lire la réponse →</p>
               </div>
             </Link>
           ))}
@@ -62,18 +66,8 @@ export default async function ConseillsPage() {
         )}
       </div>
 
-      <footer className="bg-gray-900 text-gray-400 py-10 mt-12">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="font-bold text-white text-lg mb-2">Dalil Atibaa</p>
-          <div className="flex justify-center gap-6 text-sm flex-wrap mt-3">
-            <Link href="/" className="hover:text-white transition">Accueil</Link>
-            <Link href="/conseils" className="hover:text-white transition">Conseils</Link>
-            <Link href="/recherche" className="hover:text-white transition">Recherche</Link>
-            <Link href="/contact" className="hover:text-white transition">Contact</Link>
-          </div>
-          <p className="text-xs mt-6">© 2026 Dalil Atibaa — Tous droits réservés</p>
-        </div>
-      </footer>
+      {/* ✅ Bug #26 : SiteFooter partagé — plus de duplication */}
+      <SiteFooter />
     </main>
   )
 }
