@@ -183,6 +183,7 @@ export default function StatsDashboard() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize]       = useState(10)
   const [topDoctorToday, setTopDoctorToday] = useState(null)  // médecin le + vu aujourd'hui
+  const [inactiveCount,   setInactiveCount]  = useState(null)  // médecins actifs sans aucune vue
 
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -195,10 +196,11 @@ export default function StatsDashboard() {
     setCurrentPage(1)
   }, [search, sortBy, period])
 
-  // Médecin du jour — chargé une seule fois à la connexion admin (indépendant du filtre période)
+  // Médecin du jour + alerte inactifs — chargés une fois à la connexion admin
   useEffect(() => {
     if (!isAuth) return
     fetchTopDoctorToday()
+    fetchInactiveCount()
   }, [isAuth])
 
 
@@ -228,6 +230,17 @@ export default function StatsDashboard() {
 
     if (doc) setTopDoctorToday({ ...doc, viewsToday })
     else     setTopDoctorToday(null)
+  }
+
+  // ── fetchInactiveCount : médecins actifs sans aucune vue enregistrée ─────────────────
+  async function fetchInactiveCount() {
+    // Une seule requête COUNT côté Supabase — très efficace
+    const { count } = await supabase
+      .from('doctors')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .eq('count_views', 0)
+    setInactiveCount(count || 0)
   }
 
   // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
@@ -645,6 +658,31 @@ export default function StatsDashboard() {
                 Voir la fiche →
               </a>
             </div>
+          </div>
+        )}
+
+        {/* ── Alerte médecins inactifs ────────────────────────────────────────────── */}
+        {inactiveCount > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-lg shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <p className="font-bold text-orange-800">
+                  {inactiveCount} médecin{inactiveCount > 1 ? 's' : ''} sans aucune visite
+                </p>
+                <p className="text-sm text-orange-600">
+                  Ces profils sont actifs mais n'ont jamais été visités. Pensez à compléter leurs fiches.
+                </p>
+              </div>
+            </div>
+            <a
+              href="/admin/404"
+              className="bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm px-4 py-2 rounded-xl transition whitespace-nowrap"
+            >
+              Gérer les fiches →
+            </a>
           </div>
         )}
 
