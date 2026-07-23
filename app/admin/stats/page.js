@@ -363,7 +363,7 @@ export default function StatsDashboard() {
         do {
           const { data: batch, error: batchErr } = await supabase
             .from('doctors')
-            .select('id, name_fr, slug, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
+            .select('id, name_fr, slug, phone, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
             .or('count_views.gt.0,count_calls.gt.0,count_whatsapp.gt.0,count_maps.gt.0')
             .range(fromDocs, fromDocs + batchDocs - 1)
           if (batchErr) break
@@ -433,7 +433,7 @@ export default function StatsDashboard() {
         if (ids.length > 0) {
           const { data: docs } = await supabase
             .from('doctors')
-            .select('id, name_fr, slug, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
+            .select('id, name_fr, slug, phone, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
             .in('id', ids)
           ;(docs || []).forEach(d => { doctorMap[d.id] = d })
         }
@@ -476,38 +476,74 @@ export default function StatsDashboard() {
     setLoading(false)
   }
 
-  // Fonction d'exportation des données de la table sous format CSV
+  // E1 — Export CSV amélioré : téléphone, URL, métadonnées, taux conv global, ligne totaux
   function exportCsv() {
     if (rows.length === 0) return
-    
-    // En-têtes du fichier CSV
-    const headers = ['Nom', 'Specialite', 'Wilaya', 'Vues', 'Appels', 'WhatsApp', 'Carte', 'Taux de conversion']
-    
-    // Contenu des lignes
-    const csvRows = rows.map(r => [
-      `"${r.name.replace(/"/g, '""')}"`,
-      `"${r.specialty.replace(/"/g, '""')}"`,
-      `"${r.wilaya.replace(/"/g, '""')}"`,
-      r.views,
-      r.calls,
-      r.whatsapp,
-      r.maps,
-      `"${convRate(r.views, r.calls)}"`
-    ])
-    
-    // Jointure finale avec saut de ligne
-    const csvContent = [headers.join(','), ...csvRows.map(row => row.join(','))].join('\n')
-    
-    // Création du fichier téléchargeable
+
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const periodLabel = {
+      today: "Aujourd'hui", yesterday: 'Hier', '7d': '7 derniers jours',
+      '30d': '30 derniers jours', '90d': '90 derniers jours', all: 'Depuis le début'
+    }[period] || period
+    const exportDate = new Date().toLocaleString('fr-FR')
+    const baseUrl = 'https://dalil-atibaa.vercel.app/docteur/'
+
+    // Lignes métadonnées
+    const meta = [
+      `"Export Dalil Atibaa",,"Période : ${periodLabel}",,"Exporté le : ${exportDate}"`,
+      `"Nombre de médecins : ${rows.length}",,"Total vues : ${rows.reduce((s, r) => s + r.views, 0)}",,"Total interactions : ${rows.reduce((s, r) => s + r.calls + r.whatsapp + r.maps, 0)}"`,
+      '', // ligne vide séparatrice
+    ]
+
+    // En-têtes enrichis
+    const headers = ['Nom', 'Spécialité', 'Wilaya', 'Téléphone', 'Vues', 'Appels', 'WhatsApp', 'Carte', 'Interactions', 'Conv.(%)', 'URL Profil']
+
+    // Lignes de données
+    const csvRows = rows.map(r => {
+      const interactions = (r.calls || 0) + (r.whatsapp || 0) + (r.maps || 0)
+      const conv = r.views > 0 ? Math.round((interactions / r.views) * 100) : 0
+      return [
+        esc(r.name),
+        esc(r.specialty),
+        esc(r.wilaya),
+        esc(r.phone),
+        r.views    || 0,
+        r.calls    || 0,
+        r.whatsapp || 0,
+        r.maps     || 0,
+        interactions,
+        `${conv}%`,
+        esc(`${baseUrl}${r.slug}`),
+      ]
+    })
+
+    // Ligne totaux
+    const totalViews        = rows.reduce((s, r) => s + (r.views    || 0), 0)
+    const totalCalls        = rows.reduce((s, r) => s + (r.calls    || 0), 0)
+    const totalWhatsapp     = rows.reduce((s, r) => s + (r.whatsapp || 0), 0)
+    const totalMaps         = rows.reduce((s, r) => s + (r.maps     || 0), 0)
+    const totalInteractions = totalCalls + totalWhatsapp + totalMaps
+    const totalConv = totalViews > 0 ? Math.round((totalInteractions / totalViews) * 100) : 0
+    const totalsRow = ['"TOTAL"', '""', '""', '""', totalViews, totalCalls, totalWhatsapp, totalMaps, totalInteractions, `"${totalConv}%"`, '""']
+
+    const csvContent = [
+      ...meta,
+      headers.join(','),
+      ...csvRows.map(row => row.join(',')),
+      '',
+      totalsRow.join(',')
+    ].join('\n')
+
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.setAttribute('href', url)
-    link.setAttribute('download', `stats_medecins_${period}_${new Date().toISOString().slice(0, 10)}.csv`)
+    link.setAttribute('download', `dalil_stats_${period}_${new Date().toISOString().slice(0, 10)}.csv`)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   // ── filtered + sorted rows ──────────────────────────────────────────────────
@@ -521,6 +557,7 @@ export default function StatsDashboard() {
         specialty: doctors[r.id]?.specialties?.name_fr || '—',
         wilaya: doctors[r.id]?.wilayas?.name_fr || '—',
         slug: doctors[r.id]?.slug || '',
+        phone: doctors[r.id]?.phone || '',
         globalViews: doctors[r.id]?.count_views || 0,
       }))
 
