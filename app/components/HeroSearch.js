@@ -147,6 +147,11 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
     const found = specialties.find(s => s.slug === defaultSpecialty)
     return found ? String(found.id) : ''
   })
+  const [wilayaId, setWilayaId]   = useState(() => {
+    if (!defaultWilaya) return ''
+    const found = wilayas.find(w => w.slug === defaultWilaya)
+    return found ? String(found.id) : ''
+  })
   const [gpsMode, setGpsMode]     = useState(false)
   const [gpsStatus, setGpsStatus] = useState('idle')
   const [results, setResults]     = useState([])
@@ -173,10 +178,14 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
       const json = await res.json()
       if (!json.results?.length) {
         setGpsStatus('no-results'); if (p === 0) setResults([])
+        // Tracking : recherche GPS sans résultat
+        if (p === 0) fetch('/api/search-track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ specialty_id: sid ? Number(sid) : null, results_count: 0, gps_used: true }) }).catch(() => {})
       } else {
         setGpsStatus('success')
         setResults(prev => p === 0 ? json.results : [...prev, ...json.results])
         setHasMore(json.results.length === PAGE_SIZE)
+        // Tracking : recherche GPS avec résultats (seulement la 1ère page)
+        if (p === 0) fetch('/api/search-track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ specialty_id: sid ? Number(sid) : null, results_count: json.results.length, gps_used: true }) }).catch(() => {})
       }
     } catch { setGpsStatus('error'); setErrorMsg('Impossible de charger les résultats. Réessayez.') }
   }, [])
@@ -188,6 +197,26 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
     const id    = found ? String(found.id) : ''
     setSpecId(id)
     if (gpsMode && userPos) { setPage(0); fetchNearby(userPos.lat, userPos.lng, radius, id, 0) }
+  }
+
+  // Met à jour wilayaId pour le tracking du formulaire
+  const handleWilayaChange = (e) => {
+    const slug  = e.target.value
+    const found = wilayas.find(w => w.slug === slug)
+    setWilayaId(found ? String(found.id) : '')
+  }
+
+  // Tracking : envoi sendBeacon au submit (ne bloque pas la navigation)
+  const handleFormSubmit = () => {
+    try {
+      const payload = JSON.stringify({
+        wilaya_id:    wilayaId    ? Number(wilayaId)    : null,
+        specialty_id: specId      ? Number(specId)      : null,
+        gps_used: false,
+      })
+      const blob = new Blob([payload], { type: 'application/json' })
+      navigator.sendBeacon?.('/api/search-track', blob)
+    } catch {}
   }
 
   const handleGPS = useCallback(() => {
@@ -274,6 +303,7 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
       <form
         action="/recherche"
         method="GET"
+        onSubmit={handleFormSubmit}
         className="bg-white rounded-2xl shadow-2xl overflow-visible"
       >
         {/* Ligne principale */}
@@ -324,6 +354,7 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
                   name="wilaya"
                   aria-label="Choisir une wilaya"
                   defaultValue={defaultWilaya}
+                  onChange={handleWilayaChange}
                   className="w-full text-gray-700 text-sm focus:outline-none bg-white cursor-pointer"
                 >
                   <option value="">Toutes les wilayas</option>
