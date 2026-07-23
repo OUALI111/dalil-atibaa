@@ -187,6 +187,7 @@ export default function StatsDashboard() {
   const [inactiveCount,   setInactiveCount]  = useState(null)  // médecins actifs sans aucune vue
   const [pwaData,         setPwaData]         = useState(null)  // événements PWA bruts
   const [deserts,         setDeserts]         = useState(null)  // wilayas les moins couvertes
+  const [searchStats,     setSearchStats]     = useState(null)  // données search_stats
 
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -206,6 +207,7 @@ export default function StatsDashboard() {
     fetchInactiveCount()
     fetchPwaStats()
     fetchDesertsMedicaux()
+    fetchSearchStats()
   }, [isAuth])
 
 
@@ -274,6 +276,19 @@ export default function StatsDashboard() {
       .sort((a, b) => a.doctors - b.doctors)
       .slice(0, 10)
     setDeserts(result)
+  }
+
+  // ── fetchSearchStats : 30 derniers jours depuis search_stats ───────────────────────
+  async function fetchSearchStats() {
+    const since = new Date()
+    since.setDate(since.getDate() - 30)
+    const { data } = await supabase
+      .from('search_stats')
+      .select('query, wilaya_id, specialty_id, results_count, gps_used, created_at')
+      .gte('created_at', since.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(5000)
+    setSearchStats(data || [])
   }
 
   // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
@@ -536,6 +551,39 @@ export default function StatsDashboard() {
   // ── chart max ────────────────────────────────────────────────────────────────
   // chartMax inclut les 3 séries pour un axe Y cohérent
   const chartMax = useMemo(() => Math.max(...chartData.map(d => Math.max(d.views, d.calls, d.whatsapp || 0)), 1), [chartData])
+
+  // ── D3 : analytics des recherches ────────────────────────────────────────────────
+  // Top 10 requêtes les plus fréquentes
+  const topQueries = useMemo(() => {
+    if (!searchStats?.length) return []
+    const counts = {}
+    searchStats.filter(r => r.query?.trim()).forEach(r => {
+      const q = r.query.trim().toLowerCase()
+      counts[q] = (counts[q] || 0) + 1
+    })
+    return Object.entries(counts).map(([query, count]) => ({ query, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 10)
+  }, [searchStats])
+
+  // Top 5 recherches sans résultat (opportunités)
+  const zeroResultQueries = useMemo(() => {
+    if (!searchStats?.length) return []
+    const counts = {}
+    searchStats.filter(r => r.results_count === 0).forEach(r => {
+      const key = r.query?.trim().toLowerCase() || `(gps sans spécialité)`
+      counts[key] = (counts[key] || 0) + 1
+    })
+    return Object.entries(counts).map(([query, count]) => ({ query, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 5)
+  }, [searchStats])
+
+  // Heure de pointe (24h)
+  const peakHours = useMemo(() => {
+    if (!searchStats?.length) return Array(24).fill(0).map((_, h) => ({ h, count: 0 }))
+    const hours = Array(24).fill(0)
+    searchStats.forEach(r => { hours[new Date(r.created_at).getHours()]++ })
+    return hours.map((count, h) => ({ h, count }))
+  }, [searchStats])
 
   // ── PWA stats calculées depuis pwaData ────────────────────────────────────────────
   const pwaStats = useMemo(() => {
@@ -1010,6 +1058,104 @@ export default function StatsDashboard() {
             <p className="text-xs text-gray-400 mt-4 text-center">
               Source : médecins actifs dans la base de données — indépendant de la période sélectionnée
             </p>
+          </div>
+        )}
+
+        {/* ── D3 : Analytiques des recherches ───────────────────────────────────── */}
+        {searchStats !== null && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+
+            {/* En-tête */}
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+                <span>🔍</span> Analytiques des Recherches
+                <span className="text-xs text-gray-400 font-normal">(30 derniers jours)</span>
+              </h2>
+              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
+                {fmtNum(searchStats.length)} recherches
+              </span>
+            </div>
+
+            {searchStats.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <p className="text-4xl mb-3">📊</p>
+                <p className="font-semibold text-gray-500">En attente de données</p>
+                <p className="text-sm mt-1 text-center">Les recherches des utilisateurs apparaîtront ici dès que le tracking sera actif.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                {/* Top 10 requêtes */}
+                <div className="lg:col-span-2 space-y-2">
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">📅 Top 10 Recherches</p>
+                  {topQueries.length > 0 ? topQueries.map(({ query, count }, i) => {
+                    const pct = Math.round((count / (topQueries[0]?.count || 1)) * 100)
+                    return (
+                      <div key={i}>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="truncate max-w-[240px] font-medium text-gray-700">
+                            <span className="text-gray-400 mr-1">{i + 1}.</span>{query}
+                          </span>
+                          <span className="font-bold text-gray-900 ml-2 shrink-0">{count}×</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-700" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )
+                  }) : (
+                    <p className="text-sm text-gray-400 py-4 text-center">Aucune requête texte saisie pour l&apos;instant</p>
+                  )}
+                </div>
+
+                {/* Droite : sans résultats + heure de pointe */}
+                <div className="space-y-6">
+
+                  {/* Sans résultats */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">🚫 Sans résultat</p>
+                    {zeroResultQueries.length > 0 ? (
+                      <div className="space-y-2">
+                        {zeroResultQueries.map(({ query, count }, i) => (
+                          <div key={i} className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
+                            <span className="text-sm text-orange-800 truncate max-w-[140px] font-medium">{query}</span>
+                            <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full ml-2 shrink-0">{count}×</span>
+                          </div>
+                        ))}
+                        <p className="text-xs text-gray-400 mt-2">💡 Ces requêtes sont des opportunités — ajouter ces médecins !</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 py-2">✅ Toutes les recherches ont trouvé des résultats</p>
+                    )}
+                  </div>
+
+                  {/* Heure de pointe */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">⏰ Heure de pointe</p>
+                    <div className="flex items-end gap-px h-16">
+                      {(() => {
+                        const maxCount = Math.max(...peakHours.map(d => d.count), 1)
+                        return peakHours.map(({ h, count }) => (
+                          <div key={h} className="relative flex flex-col items-center flex-1 group">
+                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] rounded-md px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 z-10 pointer-events-none">
+                              {h}h : {count}
+                            </div>
+                            <div
+                              className={`w-full rounded-t-sm transition-all duration-500 ${count === maxCount ? 'bg-blue-500' : 'bg-blue-200'}`}
+                              style={{ height: `${Math.max((count / maxCount) * 52, count > 0 ? 3 : 0)}px` }}
+                            />
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                    <div className="flex justify-between text-[9px] text-gray-400 mt-1">
+                      <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            )}
           </div>
         )}
 
