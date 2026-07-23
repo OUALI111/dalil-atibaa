@@ -3,7 +3,7 @@
   "name": "Dalil Atibaa — Médecin près de moi",
   "short_name": "Dalil Atibaa",
   "description": "Trouvez le médecin le plus proche en quelques secondes. Toutes spécialités, toutes wilayas. Gratuit et disponible hors-ligne.",
-  "start_url": "/",
+  "start_url": "/?utm_source=pwa&utm_medium=standalone&utm_campaign=installed_app",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
