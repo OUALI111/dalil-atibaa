@@ -43,16 +43,59 @@ function convRate(views, calls) {
   return Math.round((calls / views) * 100) + '%'
 }
 
+// ─── calcTrend : retourne le delta % entre current et prev ───────────────────
+function calcTrend(current, prev) {
+  if (prev === null || prev === undefined) return null
+  if (prev === 0) return current > 0 ? 100 : null
+  return Math.round(((current - prev) / prev) * 100)
+}
+
+// ─── getPrevPeriodRange : plage de la période précédente ─────────────────────
+function getPrevPeriodRange(period) {
+  const now = new Date()
+  if (period === 'all') return { since: null, until: null, skip: true }
+
+  if (period === 'today') {
+    const startToday = new Date(now); startToday.setHours(0, 0, 0, 0)
+    const startYest  = new Date(startToday); startYest.setDate(startYest.getDate() - 1)
+    return { since: startYest.toISOString(), until: startToday.toISOString() }
+  }
+  if (period === 'yesterday') {
+    const startYest     = new Date(now); startYest.setDate(now.getDate() - 1); startYest.setHours(0,0,0,0)
+    const startDayBefore = new Date(startYest); startDayBefore.setDate(startDayBefore.getDate() - 1)
+    return { since: startDayBefore.toISOString(), until: startYest.toISOString() }
+  }
+  const daysMap = { '7d': 7, '15d': 15, '30d': 30, '90d': 90 }
+  const d = daysMap[period]
+  if (d) {
+    const until = new Date(now); until.setDate(until.getDate() - d)
+    const since = new Date(until); since.setDate(since.getDate() - d)
+    return { since: since.toISOString(), until: until.toISOString() }
+  }
+  return { since: null, until: null, skip: true }
+}
+
 // ─── StatCard ────────────────────────────────────────────────────────────────
-function StatCard({ icon, label, value, color, sub }) {
+function StatCard({ icon, label, value, color, sub, trend }) {
+  const trendEl = trend !== null && trend !== undefined ? (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full mt-1.5 ${
+      trend > 0  ? 'bg-green-50 text-green-600' :
+      trend < 0  ? 'bg-red-50   text-red-500'   :
+                   'bg-gray-50  text-gray-400'
+    }`}>
+      {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'} {trend > 0 ? '+' : ''}{trend}% vs période préc.
+    </span>
+  ) : null
+
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4 transition hover:shadow-md`}>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4 transition hover:shadow-md">
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 ${color}`}>
         {icon}
       </div>
       <div>
         <p className="text-2xl font-bold text-gray-900">{value}</p>
         <p className="text-sm text-gray-500">{label}</p>
+        {trendEl}
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </div>
     </div>
@@ -132,8 +175,9 @@ export default function StatsDashboard() {
   const [loading, setLoading] = useState(false)
   const [rawStats, setRawStats] = useState([])
   const [doctors, setDoctors] = useState({})
-  const [totals, setTotals] = useState({ views: 0, calls: 0, whatsapp: 0, maps: 0 })
-  const [chartData, setChartData] = useState([])
+  const [totals, setTotals]       = useState({ views: 0, calls: 0, whatsapp: 0, maps: 0 })
+  const [prevTotals, setPrevTotals] = useState(null)   // période précédente pour calcul tendance
+  const [chartData, setChartData]  = useState([])
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -177,10 +221,36 @@ export default function StatsDashboard() {
     return allStats
   }
 
+  // ── Helper : 4 COUNT queries parallèles pour la période précédente (très efficace) ─
+  async function fetchPrevTotals(since, until) {
+    const countFor = async (eventType) => {
+      let q = supabase
+        .from('doctor_stats')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_type', eventType)
+      if (since) q = q.gte('created_at', since)
+      if (until) q = q.lt('created_at', until)
+      const { count } = await q
+      return count || 0
+    }
+    const [views, calls, whatsapp, maps] = await Promise.all([
+      countFor('view'),
+      countFor('call_click'),
+      countFor('whatsapp_click'),
+      countFor('map_click'),
+    ])
+    return { views, calls, whatsapp, maps }
+  }
+
   // ── fetch data ──────────────────────────────────────────────────────────────
   async function fetchData() {
     setLoading(true)
     try {
+      // Lance la récupération de la période précédente EN PARALLÈLE dès le début
+      const prevRange = getPrevPeriodRange(period)
+      const prevPromise = prevRange.skip
+        ? Promise.resolve(null)
+        : fetchPrevTotals(prevRange.since, prevRange.until)
 
       if (period === 'all') {
         // ════════════════════════════════════════════════════════════════════
@@ -295,6 +365,10 @@ export default function StatsDashboard() {
         const days = Object.keys(dailyCounts).sort().slice(-14)
         setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls })))
       }
+
+      // Attend la période précédente et met à jour le state
+      const prev = await prevPromise
+      setPrevTotals(prev)
 
     } catch (e) {
       console.error(e)
@@ -472,9 +546,10 @@ export default function StatsDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard icon="👁" label="Visites" value={fmtNum(totals.views)}
             color="bg-blue-50 text-blue-600"
+            trend={prevTotals ? calcTrend(totals.views, prevTotals.views) : null}
             sub={
-              period === 'all' 
-                ? 'Toutes périodes' 
+              period === 'all'
+                ? 'Toutes périodes'
                 : period === 'today'
                 ? "Aujourd'hui"
                 : period === 'yesterday'
@@ -486,14 +561,17 @@ export default function StatsDashboard() {
           />
           <StatCard icon="📞" label="Clics Appel" value={fmtNum(totals.calls)}
             color="bg-green-50 text-green-600"
+            trend={prevTotals ? calcTrend(totals.calls, prevTotals.calls) : null}
             sub={`Taux: ${convRate(totals.views, totals.calls)}`}
           />
           <StatCard icon="💬" label="Clics WhatsApp" value={fmtNum(totals.whatsapp)}
             color="bg-emerald-50 text-emerald-600"
+            trend={prevTotals ? calcTrend(totals.whatsapp, prevTotals.whatsapp) : null}
             sub={`Taux: ${convRate(totals.views, totals.whatsapp)}`}
           />
           <StatCard icon="🗺" label="Clics Carte" value={fmtNum(totals.maps)}
             color="bg-orange-50 text-orange-600"
+            trend={prevTotals ? calcTrend(totals.maps, prevTotals.maps) : null}
             sub={`Taux: ${convRate(totals.views, totals.maps)}`}
           />
         </div>
