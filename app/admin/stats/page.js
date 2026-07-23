@@ -254,11 +254,12 @@ export default function StatsDashboard() {
 
   // ── fetchPwaStats : événements PWA depuis la table pwa_stats ──────────────────────
   async function fetchPwaStats() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('pwa_stats')
       .select('event, platform, created_at')
       .order('created_at', { ascending: false })
       .limit(5000)
+    if (error) console.error('[fetchPwaStats] Erreur RLS ou table manquante :', error.message)
     setPwaData(data || [])
   }
 
