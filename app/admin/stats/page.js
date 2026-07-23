@@ -571,18 +571,26 @@ export default function StatsDashboard() {
       .slice(0, 10)
   }, [rows])
 
-  // Top 5 Spécialités (triées par visites)
+  // C2 — Top 10 Spécialités avec taux de conversion
   const topSpecialties = useMemo(() => {
-    const counts = {}
+    const stats = {}
     rows.forEach(r => {
       if (r.specialty && r.specialty !== '—') {
-        counts[r.specialty] = (counts[r.specialty] || 0) + r.views
+        if (!stats[r.specialty]) stats[r.specialty] = { views: 0, interactions: 0, doctors: 0 }
+        stats[r.specialty].views        += r.views
+        stats[r.specialty].interactions += (r.calls || 0) + (r.whatsapp || 0) + (r.maps || 0)
+        stats[r.specialty].doctors      += 1
       }
     })
-    return Object.entries(counts)
-      .map(([name, views]) => ({ name, views }))
+    return Object.entries(stats)
+      .map(([name, s]) => ({
+        name,
+        views:    s.views,
+        doctors:  s.doctors,
+        convRate: s.views > 0 ? Math.round((s.interactions / s.views) * 100) : 0,
+      }))
       .sort((a, b) => b.views - a.views)
-      .slice(0, 5)
+      .slice(0, 10)
   }, [rows])
 
   if (!isAuth) return <LoginScreen onLogin={() => setIsAuth(true)} />
@@ -896,25 +904,45 @@ export default function StatsDashboard() {
 
           {/* Top Spécialités */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="text-indigo-500">🩺</span> Top 5 Spécialités les plus visitées
+            <h2 className="font-bold text-gray-900 mb-4 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="text-indigo-500">🩺</span> Top 10 Spécialités
+              </span>
+              <span className="text-xs text-gray-400 font-normal">vues · médecins · conversion</span>
             </h2>
             {topSpecialties.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {topSpecialties.map((s, idx) => {
-                  const maxVal = topSpecialties[0].views || 1;
-                  const pct = Math.round((s.views / maxVal) * 100);
+                  const maxVal = topSpecialties[0].views || 1
+                  const barPct = Math.round((s.views / maxVal) * 100)
                   return (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium text-gray-700">{idx + 1}. {s.name}</span>
-                        <span className="font-semibold text-gray-900">{s.views} vues</span>
+                    <div key={idx}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-medium text-gray-700 truncate max-w-[140px]">
+                          <span className="text-gray-400 mr-1">{idx + 1}.</span>{s.name}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">
+                            👨‍⚕️ {s.doctors}
+                          </span>
+                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
+                            s.convRate >= 10 ? 'bg-green-50 text-green-600' :
+                            s.convRate >= 5  ? 'bg-indigo-50 text-indigo-500' :
+                                               'bg-gray-50  text-gray-400'
+                          }`}>
+                            {s.convRate}%
+                          </span>
+                          <span className="font-semibold text-gray-800 w-16 text-right">{fmtNum(s.views)}</span>
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2">
-                        <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-all duration-700"
+                          style={{ width: `${barPct}%` }}
+                        />
                       </div>
                     </div>
-                  );
+                  )
                 })}
               </div>
             ) : (
