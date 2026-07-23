@@ -66,16 +66,32 @@ export default async function RootLayout({ children }) {
     // Pages françaises : <html lang="fr" dir="ltr">
     <html lang={isArabic ? 'ar' : 'fr'} dir={isArabic ? 'rtl' : 'ltr'}>
       <head>
-        {/* ✅ Audit P3 — preconnect : réduit la latence des premières connexions
-            Supabase : -150-300ms sur TTFB première visite
-            Google Tag Manager : chargé afterInteractive mais la connexion
-            DNS+TCP+TLS est pré-établie à l'avance */}
+        {/* ✅ preconnect : réduit la latence des premières connexions */}
         <link rel="preconnect" href="https://mpovugxbveqavhbjsttx.supabase.co" />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://mpovugxbveqavhbjsttx.supabase.co" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
+        {/* ✅ FIX RACE CONDITION GA4 — stub synchrone exécuté dès le parse HTML
+            window.gtag est disponible AVANT que tout composant React ne monte.
+            Les events pushés ici sont mis en file dans dataLayer et traités
+            automatiquement quand le script GA4 complet arrive (afterInteractive).
+            Sans ce stub, les events PWA tirés à 3s pouvaient arriver AVANT gtag. */}
+        {process.env.NEXT_PUBLIC_GA_ID && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}', { send_page_view: false });
+              `,
+            }}
+          />
+        )}
       </head>
       <body>
+
         {/* ✅ PWA Étape 4 — Enregistrement du service worker (production uniquement) */}
         <ServiceWorkerRegistration />
         {/* ✅ PWA Étape 5 — Banner d'installation (Android + iOS) */}
