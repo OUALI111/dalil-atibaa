@@ -201,21 +201,40 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
       setGpsStatus('error'); setErrorMsg('Géolocalisation non supportée.'); return
     }
     setGpsStatus('requesting')
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const pos = { lat: coords.latitude, lng: coords.longitude }
-        setUserPos(pos); cachePosition(pos.lat, pos.lng)
-        setPage(0); fetchNearby(pos.lat, pos.lng, radius, specId, 0)
-      },
-      (err) => {
-        setGpsStatus('error')
-        if (err.code === 1)      setErrorMsg('Accès refusé. Autorisez la géolocalisation dans votre navigateur.')
-        else if (err.code === 3) setErrorMsg('Délai GPS dépassé. Réessayez.')
-        else                     setErrorMsg('Impossible de localiser votre position.')
-      },
-      { timeout: 8000, maximumAge: 600000, enableHighAccuracy: false }
-    )
+
+    // ✅ FIX GPS COLD START — auto-retry jusqu'à 3 fois avec timeout croissant
+    // 1er essai : 8s  (GPS chaud → ça marche)
+    // 2e essai  : 12s (GPS tiède → ça marche)
+    // 3e essai  : 18s (GPS froid → dernier recours)
+    // L'utilisateur ne voit JAMAIS l'erreur sur les 2 premiers essais
+    const TIMEOUTS = [8000, 12000, 18000]
+
+    const tryGetPosition = (attempt) => {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          const pos = { lat: coords.latitude, lng: coords.longitude }
+          setUserPos(pos); cachePosition(pos.lat, pos.lng)
+          setPage(0); fetchNearby(pos.lat, pos.lng, radius, specId, 0)
+        },
+        (err) => {
+          if (err.code === 3 && attempt < TIMEOUTS.length - 1) {
+            // Timeout → retry silencieux, l'utilisateur continue de voir "Recherche en cours..."
+            tryGetPosition(attempt + 1)
+          } else {
+            // Echec définitif → afficher l'erreur
+            setGpsStatus('error')
+            if (err.code === 1)      setErrorMsg('Accès refusé. Autorisez la géolocalisation dans votre navigateur.')
+            else if (err.code === 3) setErrorMsg('Délai GPS dépassé. Réessayez.')
+            else                     setErrorMsg('Impossible de localiser votre position.')
+          }
+        },
+        { timeout: TIMEOUTS[attempt], maximumAge: 600000, enableHighAccuracy: false }
+      )
+    }
+
+    tryGetPosition(0)
   }, [radius, specId, fetchNearby])
+
 
   const exitGPS = () => {
     setGpsMode(false); setGpsStatus('idle')
