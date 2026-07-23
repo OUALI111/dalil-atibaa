@@ -178,6 +178,7 @@ export default function StatsDashboard() {
   const [totals, setTotals]       = useState({ views: 0, calls: 0, whatsapp: 0, maps: 0 })
   const [prevTotals, setPrevTotals] = useState(null)   // période précédente pour calcul tendance
   const [chartData, setChartData]  = useState([])
+  const [hoveredBar, setHoveredBar] = useState(null) // index de la colonne survolée (tooltip)
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -350,12 +351,13 @@ export default function StatsDashboard() {
         const dailyCounts = {}
         for (const s of recentStats) {
           const day = s.created_at.slice(0, 10)
-          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0 }
-          if (s.event_type === 'view')       dailyCounts[day].views++
-          if (s.event_type === 'call_click') dailyCounts[day].calls++
+          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0, whatsapp: 0 }
+          if (s.event_type === 'view')            dailyCounts[day].views++
+          if (s.event_type === 'call_click')      dailyCounts[day].calls++
+          if (s.event_type === 'whatsapp_click')  dailyCounts[day].whatsapp++
         }
         const days = Object.keys(dailyCounts).sort().slice(-14)
-        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls })))
+        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls, whatsapp: dailyCounts[d].whatsapp })))
 
       } else {
         // ════════════════════════════════════════════════════════════════════
@@ -400,9 +402,10 @@ export default function StatsDashboard() {
           if (s.event_type === 'whatsapp_click') agg[s.doctor_id].whatsapp++
           if (s.event_type === 'map_click')      agg[s.doctor_id].maps++
           const day = s.created_at.slice(0, 10)
-          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0 }
-          if (s.event_type === 'view')       dailyCounts[day].views++
-          if (s.event_type === 'call_click') dailyCounts[day].calls++
+          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0, whatsapp: 0 }
+          if (s.event_type === 'view')            dailyCounts[day].views++
+          if (s.event_type === 'call_click')      dailyCounts[day].calls++
+          if (s.event_type === 'whatsapp_click')  dailyCounts[day].whatsapp++
         }
 
         setRawStats(Object.entries(agg).map(([id, v]) => ({ id: Number(id), ...v })))
@@ -413,7 +416,7 @@ export default function StatsDashboard() {
           maps:     Object.values(agg).reduce((s, r) => s + r.maps, 0),
         })
         const days = Object.keys(dailyCounts).sort().slice(-14)
-        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls })))
+        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls, whatsapp: dailyCounts[d].whatsapp })))
       }
 
       // Attend la période précédente et met à jour le state
@@ -499,7 +502,8 @@ export default function StatsDashboard() {
   const maxCalls = useMemo(() => Math.max(...rows.map(r => r.calls), 1), [rows])
 
   // ── chart max ────────────────────────────────────────────────────────────────
-  const chartMax = useMemo(() => Math.max(...chartData.map(d => d.views), 1), [chartData])
+  // chartMax inclut les 3 séries pour un axe Y cohérent
+  const chartMax = useMemo(() => Math.max(...chartData.map(d => Math.max(d.views, d.calls, d.whatsapp || 0)), 1), [chartData])
 
   // Conversion Globale
   const totalInteractions = totals.calls + totals.whatsapp + totals.maps
@@ -727,40 +731,65 @@ export default function StatsDashboard() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
             <h2 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
               <span className="text-blue-600">📈</span>
-              Évolution des visites (14 derniers jours)
+              Évolution 14 jours — Visites · Appels · WhatsApp
             </h2>
             {chartData.length > 0 ? (
               <>
-                <div className="flex items-end gap-2 h-36 overflow-x-auto pb-2">
-                  {chartData.map((d, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-[28px]">
-                      <div className="w-full flex flex-col items-center justify-end h-24 gap-0.5">
-                        <div
-                          className="w-full rounded-sm bg-green-400 transition-all duration-500"
-                          style={{ height: `${Math.max(chartMax ? (d.calls / chartMax) * 60 : 0, d.calls > 0 ? 4 : 0)}px` }}
-                          title={`${d.calls} appels`}
-                        />
-                        <div
-                          className="w-full rounded-sm bg-blue-500 transition-all duration-500"
-                          style={{ height: `${Math.max(chartMax ? (d.views / chartMax) * 60 : 0, d.views > 0 ? 4 : 0)}px` }}
-                          title={`${d.views} vues`}
-                        />
+                {/* Colonnes de barres */}
+                <div className="flex items-end gap-1.5 h-40 pb-2 overflow-x-auto">
+                  {chartData.map((d, i) => {
+                    const hMax = chartMax || 1
+                    const hViews    = Math.max(hMax ? (d.views / hMax) * 100 : 0, d.views > 0 ? 4 : 0)
+                    const hCalls    = Math.max(hMax ? (d.calls / hMax) * 100 : 0, d.calls > 0 ? 4 : 0)
+                    const hWhatsapp = Math.max(hMax ? ((d.whatsapp || 0) / hMax) * 100 : 0, (d.whatsapp || 0) > 0 ? 4 : 0)
+                    return (
+                      <div
+                        key={i}
+                        className="relative flex flex-col items-center gap-0.5 flex-1 min-w-[26px] cursor-default"
+                        onMouseEnter={() => setHoveredBar(i)}
+                        onMouseLeave={() => setHoveredBar(null)}
+                      >
+                        {/* Tooltip */}
+                        {hoveredBar === i && (
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded-xl px-3 py-2 whitespace-nowrap z-20 shadow-xl pointer-events-none">
+                            <p className="font-bold text-gray-300 mb-1 text-center">{d.day}</p>
+                            <p className="text-blue-300">👁 {d.views} vues</p>
+                            <p className="text-green-300">📞 {d.calls} appels</p>
+                            <p className="text-purple-300">💬 {d.whatsapp || 0} WhatsApp</p>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                          </div>
+                        )}
+                        {/* Barres empilées */}
+                        <div className="w-full flex flex-col items-center justify-end h-28 gap-px">
+                          <div className="w-full rounded-t-sm bg-purple-400 transition-all duration-500"
+                            style={{ height: `${hWhatsapp}px` }} />
+                          <div className="w-full bg-green-400 transition-all duration-500"
+                            style={{ height: `${hCalls}px` }} />
+                          <div className="w-full rounded-b-sm bg-blue-500 transition-all duration-500"
+                            style={{ height: `${hViews}px` }} />
+                        </div>
+                        <span className={`text-[9px] whitespace-nowrap transition-colors ${
+                          hoveredBar === i ? 'text-gray-700 font-semibold' : 'text-gray-400'
+                        }`}>{d.day}</span>
                       </div>
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap">{d.day}</span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
-                <div className="flex items-center gap-4 mt-3">
+                {/* Légende */}
+                <div className="flex items-center gap-5 mt-3 flex-wrap">
                   <div className="flex items-center gap-1.5 text-xs text-gray-500">
                     <div className="w-3 h-3 rounded-sm bg-blue-500" /> Visites
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-gray-500">
                     <div className="w-3 h-3 rounded-sm bg-green-400" /> Appels
                   </div>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <div className="w-3 h-3 rounded-sm bg-purple-400" /> WhatsApp
+                  </div>
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-center h-36 text-gray-400 text-sm">
+              <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
                 Pas assez de données pour afficher le graphique d'évolution quotidien
               </div>
             )}
