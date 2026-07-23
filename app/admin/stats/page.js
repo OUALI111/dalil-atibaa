@@ -181,7 +181,8 @@ export default function StatsDashboard() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize]       = useState(10)
+  const [topDoctorToday, setTopDoctorToday] = useState(null)  // médecin le + vu aujourd'hui
 
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -194,8 +195,44 @@ export default function StatsDashboard() {
     setCurrentPage(1)
   }, [search, sortBy, period])
 
+  // Médecin du jour — chargé une seule fois à la connexion admin (indépendant du filtre période)
+  useEffect(() => {
+    if (!isAuth) return
+    fetchTopDoctorToday()
+  }, [isAuth])
+
+
+  // ── fetchTopDoctorToday : médecin avec le + de vues aujourd'hui ────────────
+  async function fetchTopDoctorToday() {
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const { data } = await supabase
+      .from('doctor_stats')
+      .select('doctor_id')
+      .eq('event_type', 'view')
+      .gte('created_at', todayStart.toISOString())
+
+    if (!data || data.length === 0) { setTopDoctorToday(null); return }
+
+    // Agrège les vues par médecin côté client
+    const counts = {}
+    data.forEach(r => { counts[r.doctor_id] = (counts[r.doctor_id] || 0) + 1 })
+    const [topId, viewsToday] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+
+    const { data: doc } = await supabase
+      .from('doctors')
+      .select('id, name_fr, slug, specialties(name_fr), wilayas(name_fr)')
+      .eq('id', Number(topId))
+      .single()
+
+    if (doc) setTopDoctorToday({ ...doc, viewsToday })
+    else     setTopDoctorToday(null)
+  }
+
   // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
   async function fetchStatsWithPagination(since, until) {
+
     const allStats = []
     let from = 0
     const batchSize = 1000
@@ -575,6 +612,41 @@ export default function StatsDashboard() {
             sub={`Taux: ${convRate(totals.views, totals.maps)}`}
           />
         </div>
+
+        {/* ── Médecin du jour ───────────────────────────────────────────────── */}
+        {topDoctorToday && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 text-white flex items-center justify-between gap-4 flex-wrap shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-xl font-extrabold shrink-0">
+                {topDoctorToday.name_fr?.charAt(0)}
+              </div>
+              <div>
+                <p className="text-xs text-blue-100 font-semibold uppercase tracking-widest mb-0.5">
+                  ⭐ Médecin du jour
+                </p>
+                <p className="font-bold text-lg leading-tight">{topDoctorToday.name_fr}</p>
+                <p className="text-blue-100 text-sm mt-0.5">
+                  {topDoctorToday.specialties?.name_fr}
+                  {topDoctorToday.wilayas?.name_fr ? ` · ${topDoctorToday.wilayas.name_fr}` : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6 flex-wrap">
+              <div className="text-center">
+                <p className="text-4xl font-extrabold tabular-nums">{topDoctorToday.viewsToday}</p>
+                <p className="text-xs text-blue-100 mt-0.5">vues aujourd'hui</p>
+              </div>
+              <a
+                href={`/docteur/${topDoctorToday.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white text-blue-600 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+              >
+                Voir la fiche →
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* Performance & Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
