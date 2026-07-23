@@ -188,6 +188,7 @@ export default function StatsDashboard() {
   const [pwaData,         setPwaData]         = useState(null)  // événements PWA bruts
   const [deserts,         setDeserts]         = useState(null)  // wilayas les moins couvertes
   const [searchStats,     setSearchStats]     = useState(null)  // données search_stats
+  const [incompleteDocs,  setIncompleteDocs]  = useState(null)  // médecins incomplets (qualité)
 
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -208,6 +209,7 @@ export default function StatsDashboard() {
     fetchPwaStats()
     fetchDesertsMedicaux()
     fetchSearchStats()
+    fetchIncompleteDoctors()
   }, [isAuth])
 
 
@@ -289,6 +291,23 @@ export default function StatsDashboard() {
       .order('created_at', { ascending: false })
       .limit(5000)
     setSearchStats(data || [])
+  }
+
+  // ── fetchIncompleteDoctors : médecins actifs avec données manquantes ─────────────────
+  async function fetchIncompleteDoctors() {
+    const [{ data: noPhone }, { data: noAddress }, { data: noGPS }] = await Promise.all([
+      supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true)
+        .or('phone.is.null,phone.eq.,phone.eq.N/A').limit(100),
+      supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true)
+        .or('address.is.null,address.eq.,address.eq.N/A').limit(100),
+      supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true)
+        .is('latitude', null).limit(100),
+    ])
+    setIncompleteDocs({
+      noPhone:   noPhone   || [],
+      noAddress: noAddress || [],
+      noGPS:     noGPS     || [],
+    })
   }
 
   // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
@@ -1311,6 +1330,64 @@ export default function StatsDashboard() {
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* ── E2 : Qualité des fiches — Médecins incomplets ─────────────────────── */}
+        {incompleteDocs && (
+          <div className="bg-white rounded-2xl border border-rose-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+                <span>⚠️</span> Qualité des Fiches
+              </h2>
+              <a
+                href="/admin/404"
+                className="text-xs text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full font-medium hover:bg-rose-100 transition"
+              >
+                Corriger → Admin
+              </a>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { icon: '📵', label: 'Sans Téléphone', data: incompleteDocs.noPhone,   bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700',    dot: 'bg-red-500',    numColor: 'text-red-600'    },
+                { icon: '📍', label: 'Sans Adresse',   data: incompleteDocs.noAddress, bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400', numColor: 'text-orange-600' },
+                { icon: '🗺️', label: 'Sans GPS',       data: incompleteDocs.noGPS,     bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400', numColor: 'text-yellow-600' },
+              ].map(({ icon, label, data, bg, border, badge, dot, numColor }) => (
+                <div key={label} className={`rounded-xl border p-4 ${bg} ${border}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span>{icon}</span>
+                      <p className="font-semibold text-gray-800 text-sm">{label}</p>
+                    </div>
+                    <span className={`text-2xl font-extrabold ${numColor}`}>{data.length}{data.length >= 100 ? '+' : ''}</span>
+                  </div>
+                  {data.length === 0 ? (
+                    <p className="text-xs text-green-600 font-medium">✅ Aucun médecin incomplet</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {data.slice(0, 3).map(d => (
+                        <div key={d.id} className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                          <a
+                            href={`/docteur/${d.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-gray-700 hover:text-blue-600 hover:underline truncate"
+                          >
+                            {d.name_fr}
+                          </a>
+                        </div>
+                      ))}
+                      {data.length > 3 && (
+                        <a href="/admin/404" className={`text-xs font-semibold px-2 py-0.5 rounded-md inline-block mt-1 ${badge}`}>
+                          + {data.length - 3} de plus →
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
