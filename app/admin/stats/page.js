@@ -186,6 +186,7 @@ export default function StatsDashboard() {
   const [topDoctorToday, setTopDoctorToday] = useState(null)  // médecin le + vu aujourd'hui
   const [inactiveCount,   setInactiveCount]  = useState(null)  // médecins actifs sans aucune vue
   const [pwaData,         setPwaData]         = useState(null)  // événements PWA bruts
+  const [deserts,         setDeserts]         = useState(null)  // wilayas les moins couvertes
 
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -204,6 +205,7 @@ export default function StatsDashboard() {
     fetchTopDoctorToday()
     fetchInactiveCount()
     fetchPwaStats()
+    fetchDesertsMedicaux()
   }, [isAuth])
 
 
@@ -254,6 +256,24 @@ export default function StatsDashboard() {
       .order('created_at', { ascending: false })
       .limit(5000)
     setPwaData(data || [])
+  }
+
+  // ── fetchDesertsMedicaux : wilayas avec le moins de médecins actifs ──────────────────
+  async function fetchDesertsMedicaux() {
+    const [{ data: docs }, { data: allWilayas }] = await Promise.all([
+      supabase.from('doctors').select('wilaya_id').eq('is_active', true),
+      supabase.from('wilayas').select('id, name_fr').order('name_fr')
+    ])
+    if (!docs || !allWilayas) { setDeserts([]); return }
+    const countByWilaya = {}
+    docs.forEach(d => {
+      if (d.wilaya_id) countByWilaya[d.wilaya_id] = (countByWilaya[d.wilaya_id] || 0) + 1
+    })
+    const result = allWilayas
+      .map(w => ({ name: w.name_fr, doctors: countByWilaya[w.id] || 0 }))
+      .sort((a, b) => a.doctors - b.doctors)
+      .slice(0, 10)
+    setDeserts(result)
   }
 
   // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
@@ -950,6 +970,48 @@ export default function StatsDashboard() {
             )}
           </div>
         </div>
+
+        {/* ── C3 Déserts Médicaux ───────────────────────────────────────────────────────────── */}
+        {deserts && deserts.length > 0 && (
+          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+                <span>🏕️</span> Déserts Médicaux
+              </h2>
+              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full font-medium">
+                Wilayas les moins couvertes
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {deserts.map((w, i) => {
+                const level =
+                  w.doctors === 0 ? { label: 'Désert total',      bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700',    dot: 'bg-red-500'    } :
+                  w.doctors <= 3  ? { label: 'Critique',           bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400' } :
+                                    { label: 'Couverture faible',  bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400' }
+                return (
+                  <div key={i} className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${level.bg} ${level.border}`}>
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${level.dot}`} />
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm">{w.name}</p>
+                        <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${level.badge}`}>
+                          {level.label}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-extrabold text-gray-900 leading-none">{w.doctors}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">médecin{w.doctors > 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-4 text-center">
+              Source : médecins actifs dans la base de données — indépendant de la période sélectionnée
+            </p>
+          </div>
+        )}
 
         {/* ── SECTION PWA ───────────────────────────────────────────────────────────── */}
         {pwaStats && (
