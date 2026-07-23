@@ -185,6 +185,7 @@ export default function StatsDashboard() {
   const [pageSize, setPageSize]       = useState(10)
   const [topDoctorToday, setTopDoctorToday] = useState(null)  // médecin le + vu aujourd'hui
   const [inactiveCount,   setInactiveCount]  = useState(null)  // médecins actifs sans aucune vue
+  const [pwaData,         setPwaData]         = useState(null)  // événements PWA bruts
 
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -197,11 +198,12 @@ export default function StatsDashboard() {
     setCurrentPage(1)
   }, [search, sortBy, period])
 
-  // Médecin du jour + alerte inactifs — chargés une fois à la connexion admin
+  // Médecin du jour + alertes + PWA — chargés une fois à la connexion admin
   useEffect(() => {
     if (!isAuth) return
     fetchTopDoctorToday()
     fetchInactiveCount()
+    fetchPwaStats()
   }, [isAuth])
 
 
@@ -242,6 +244,16 @@ export default function StatsDashboard() {
       .eq('is_active', true)
       .eq('count_views', 0)
     setInactiveCount(count || 0)
+  }
+
+  // ── fetchPwaStats : événements PWA depuis la table pwa_stats ──────────────────────
+  async function fetchPwaStats() {
+    const { data } = await supabase
+      .from('pwa_stats')
+      .select('event, platform, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5000)
+    setPwaData(data || [])
   }
 
   // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
@@ -504,6 +516,34 @@ export default function StatsDashboard() {
   // ── chart max ────────────────────────────────────────────────────────────────
   // chartMax inclut les 3 séries pour un axe Y cohérent
   const chartMax = useMemo(() => Math.max(...chartData.map(d => Math.max(d.views, d.calls, d.whatsapp || 0)), 1), [chartData])
+
+  // ── PWA stats calculées depuis pwaData ────────────────────────────────────────────
+  const pwaStats = useMemo(() => {
+    if (!pwaData) return null
+    const count = (evt) => pwaData.filter(r => r.event === evt).length
+    const bannerShown      = count('banner_shown')
+    const installClicked   = count('install_clicked')
+    const installAccepted  = count('install_accepted')
+    const installDismissed = count('install_dismissed')
+    const sessionPWA       = count('session_standalone')
+    const android = pwaData.filter(r => r.platform === 'android').length
+    const ios     = pwaData.filter(r => r.platform === 'ios').length
+    const platformTotal   = android + ios || 1
+    const androidPct = Math.round((android / platformTotal) * 100)
+    const iosPct     = 100 - androidPct
+    const refusalRate = bannerShown ? Math.round((installDismissed / bannerShown) * 100) : 0
+    const installRate = bannerShown ? Math.round((installAccepted  / bannerShown) * 100) : 0
+    // Graphique installations quotidiennes (30 derniers jours)
+    const since30 = new Date(); since30.setDate(since30.getDate() - 30)
+    const byDay = {}
+    pwaData
+      .filter(r => r.event === 'install_accepted' && new Date(r.created_at) >= since30)
+      .forEach(r => { const d = r.created_at.slice(5, 10); byDay[d] = (byDay[d] || 0) + 1 })
+    const dailyInstalls = Object.entries(byDay)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, cnt]) => ({ day, cnt }))
+    return { bannerShown, installClicked, installAccepted, installDismissed, sessionPWA, android, ios, androidPct, iosPct, refusalRate, installRate, dailyInstalls }
+  }, [pwaData])
 
   // Conversion Globale
   const totalInteractions = totals.calls + totals.whatsapp + totals.maps
@@ -854,6 +894,124 @@ export default function StatsDashboard() {
             )}
           </div>
         </div>
+
+        {/* ── SECTION PWA ───────────────────────────────────────────────────────────── */}
+        {pwaStats && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+
+            {/* En-tête */}
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+                <span>📱</span> Statistiques PWA &amp; Installation
+              </h2>
+              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
+                {pwaStats.bannerShown} événements total
+              </span>
+            </div>
+
+            {/* B2 — Funnel d'installation */}
+            <div>
+              <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Entonnoir d'installation</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { icon: '📢', label: 'Banner affiché', value: pwaStats.bannerShown,      pct: null,    color: 'text-gray-400 bg-gray-50' },
+                  { icon: '👆', label: 'Clic Installer',  value: pwaStats.installClicked,  pct: pwaStats.bannerShown     ? Math.round((pwaStats.installClicked  / pwaStats.bannerShown)     * 100) : 0, color: 'text-blue-600 bg-blue-50'   },
+                  { icon: '✅',    label: 'Installés',      value: pwaStats.installAccepted, pct: pwaStats.installClicked  ? Math.round((pwaStats.installAccepted / pwaStats.installClicked) * 100) : 0, color: 'text-green-600 bg-green-50' },
+                  { icon: '📱',    label: 'Sessions PWA',  value: pwaStats.sessionPWA,      pct: pwaStats.installAccepted ? Math.round((pwaStats.sessionPWA       / pwaStats.installAccepted) * 100) : 0, color: 'text-purple-600 bg-purple-50' },
+                ].map(({ icon, label, value, pct, color }, i) => (
+                  <div key={i} className="relative">
+                    {i < 3 && (
+                      <span className="hidden lg:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 text-gray-300 font-black text-lg">›</span>
+                    )}
+                    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                      <p className="text-2xl mb-2">{icon}</p>
+                      <p className="text-2xl font-extrabold text-gray-900">{fmtNum(value)}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                      {pct !== null && (
+                        <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full mt-1.5 ${color}`}>
+                          {pct}% de passage
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* B3 — KPIs PWA + Plateforme */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* KPIs */}
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">KPIs clés</p>
+                {[
+                  { label: 'Taux d’installation', value: `${pwaStats.installRate}%`,   sub: `${pwaStats.installAccepted} installés / ${pwaStats.bannerShown} banners`,  bar: pwaStats.installRate,   color: 'bg-green-500' },
+                  { label: 'Taux de refus',        value: `${pwaStats.refusalRate}%`,  sub: `${pwaStats.installDismissed} refus / ${pwaStats.bannerShown} banners`,      bar: pwaStats.refusalRate,   color: 'bg-red-400'   },
+                  { label: 'Sessions PWA totales', value: fmtNum(pwaStats.sessionPWA), sub: 'Ouvertures depuis l’app installée',                                        bar: pwaStats.sessionPWA > 0 ? Math.min(Math.round((pwaStats.sessionPWA / Math.max(pwaStats.installAccepted, 1)) * 100), 100) : 0, color: 'bg-purple-500' },
+                ].map(({ label, value, sub, bar, color }) => (
+                  <div key={label} className="bg-gray-50 rounded-xl p-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-gray-600">{label}</span>
+                      <span className="font-bold text-gray-900">{value}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
+                      <div className={`${color} h-1.5 rounded-full transition-all duration-700`} style={{ width: `${Math.min(bar, 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400">{sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Plateforme Android vs iOS */}
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Plateforme</p>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-4">
+                  {[
+                    { icon: '🤖', label: 'Android', pct: pwaStats.androidPct, count: pwaStats.android, color: 'bg-green-500' },
+                    { icon: '🍎', label: 'iOS',     pct: pwaStats.iosPct,     count: pwaStats.ios,     color: 'bg-gray-400'  },
+                  ].map(({ icon, label, pct, count, color }) => (
+                    <div key={label}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-sm font-medium text-gray-700">{icon} {label}</span>
+                        <span className="text-sm font-bold text-gray-900">{pct}% <span className="text-xs text-gray-400">({fmtNum(count)})</span></span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className={`${color} h-2.5 rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* B4 — Graphique installations par jour (30 jours) */}
+            {pwaStats.dailyInstalls.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  📅 Installations par jour (30 derniers jours)
+                </p>
+                <div className="flex items-end gap-1 h-20">
+                  {(() => {
+                    const maxInst = Math.max(...pwaStats.dailyInstalls.map(d => d.cnt), 1)
+                    return pwaStats.dailyInstalls.map(({ day, cnt }, i) => {
+                      const h = Math.max((cnt / maxInst) * 60, cnt > 0 ? 4 : 0)
+                      return (
+                        <div key={i} className="relative flex flex-col items-center gap-0.5 flex-1 min-w-[16px] group">
+                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] rounded-lg px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 z-10 pointer-events-none">
+                            {cnt} install{cnt > 1 ? 's' : ''}
+                          </div>
+                          <div className="w-full bg-green-400 rounded-t-sm transition-all duration-500" style={{ height: `${h}px` }} />
+                          <span className="text-[8px] text-gray-400">{day}</span>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
 
         {/* SUGGESTIONS D'AMÉLIORATION DU DASHBOARD */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-md">
