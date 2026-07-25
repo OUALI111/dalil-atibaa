@@ -161,6 +161,7 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
   const [page, setPage]           = useState(0)
   const [hasMore, setHasMore]     = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [pendingGps, setPendingGps] = useState(false)  // ← invite visuelle quand ?gps=1 (iOS-safe)
 
   useEffect(() => {
     setIsMounted(true)
@@ -221,43 +222,66 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
 
   const handleGPS = useCallback(() => {
     setGpsMode(true)
+    setPendingGps(false)
     const cached = getCachedPosition()
     if (cached) {
       setUserPos(cached); setPage(0)
       fetchNearby(cached.lat, cached.lng, radius, specId, 0); return
     }
     if (!navigator?.geolocation) {
-      setGpsStatus('error'); setErrorMsg('Géolocalisation non supportée.'); return
+      setGpsStatus('error'); setErrorMsg('Géolocalisation non supportée sur ce navigateur.'); return
     }
     setGpsStatus('requesting')
 
-    // ✅ FIX GPS COLD START — auto-retry jusqu'à 3 fois avec timeout croissant
-    // 1er essai : 8s  (GPS chaud → ça marche)
-    // 2e essai  : 12s (GPS tiède → ça marche)
-    // 3e essai  : 18s (GPS froid → dernier recours)
-    // L'utilisateur ne voit JAMAIS l'erreur sur les 2 premiers essais
-    const TIMEOUTS = [8000, 12000, 18000]
+    // ── Détection iOS pour message d'erreur adapté ────────────────────────────
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+
+    // ── Timeout de sécurité : si iOS ne répond JAMAIS (ni succès ni erreur) ──
+    // Cela arrive quand la permission est bloquée au niveau iOS Settings
+    let settled = false
+    const safetyTimer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      setGpsStatus('error')
+      setErrorMsg(isIOS
+        ? 'GPS inaccessible. Sur iPhone : Réglages → Confidentialité → Service de localisation → Safari (ou Dalil Atibaa) → Autoriser'
+        : 'GPS inaccessible. Vérifiez que la localisation est autorisée dans votre navigateur.')
+    }, 32000) // 32s = 8+12+12s de retries + marge
+
+    // ── Retry jusqu'à 3 fois avec timeout croissant ───────────────────────────
+    const TIMEOUTS = [8000, 12000, 12000]
 
     const tryGetPosition = (attempt) => {
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
+          if (settled) return
+          settled = true
+          clearTimeout(safetyTimer)
           const pos = { lat: coords.latitude, lng: coords.longitude }
           setUserPos(pos); cachePosition(pos.lat, pos.lng)
           setPage(0); fetchNearby(pos.lat, pos.lng, radius, specId, 0)
         },
         (err) => {
+          if (settled) return
           if (err.code === 3 && attempt < TIMEOUTS.length - 1) {
-            // Timeout → retry silencieux, l'utilisateur continue de voir "Recherche en cours..."
+            // Timeout GPS → retry silencieux
             tryGetPosition(attempt + 1)
           } else {
-            // Echec définitif → afficher l'erreur
+            settled = true
+            clearTimeout(safetyTimer)
             setGpsStatus('error')
-            if (err.code === 1)      setErrorMsg('Accès refusé. Autorisez la géolocalisation dans votre navigateur.')
-            else if (err.code === 3) setErrorMsg('Délai GPS dépassé. Réessayez.')
-            else                     setErrorMsg('Impossible de localiser votre position.')
+            if (err.code === 1) {
+              setErrorMsg(isIOS
+                ? 'Accès refusé. Sur iPhone : Réglages → Confidentialité → Service de localisation → Safari → Autoriser'
+                : 'Accès refusé. Autorisez la géolocalisation dans votre navigateur.')
+            } else if (err.code === 3) {
+              setErrorMsg('Signal GPS trop faible. Déplacez-vous vers une zone dégagée et réessayez.')
+            } else {
+              setErrorMsg('Impossible de localiser votre position.')
+            }
           }
         },
-        { timeout: TIMEOUTS[attempt], maximumAge: 600000, enableHighAccuracy: false }
+        { timeout: TIMEOUTS[attempt], maximumAge: 300000, enableHighAccuracy: false }
       )
     }
 
@@ -285,10 +309,10 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       if (params.get('gps') === '1') {
-        const timer = setTimeout(() => {
-          document.getElementById('gps-trigger-button')?.click()
-        }, 800)
-        return () => clearTimeout(timer)
+        // ✔ iOS-SAFE : on n'auto-trigger PAS le GPS via setTimeout+click()
+        // (iOS Safari bloque tout getCurrentPosition non déclenché par un vrai geste utilisateur)
+        // On affiche plutôt un bouton d'invite visuelle que l'utilisateur doit tapper lui-même.
+        setPendingGps(true)
       }
     }
   }, [])
@@ -406,6 +430,18 @@ export default function HeroSearch({ specialties = [], wilayas = [], defaultSpec
           </div>
         </div>
       </form>
+
+      {/* ══ INVITE GPS (iOS-safe) — remplace l'auto-trigger ?gps=1 ═════════════ */}
+      {pendingGps && !gpsMode && (
+        <button
+          type="button"
+          onClick={handleGPS}
+          className="w-full mt-3 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-4 px-5 rounded-2xl shadow-lg transition-all animate-pulse"
+        >
+          <span className="text-xl">📍</span>
+          <span>Appuyez ici pour activer le GPS</span>
+        </button>
+      )}
 
       {/* ══ RÉSULTATS GPS (carte blanche sous le formulaire) ════════════════════ */}
       {gpsMode && (
