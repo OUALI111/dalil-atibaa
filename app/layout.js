@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import Script from 'next/script'
 import ServiceWorkerRegistration from './components/ServiceWorkerRegistration'
 import InstallBanner from './components/InstallBanner'
+import PageViewTracker from './components/PageViewTracker'
 import './globals.css'
 
 export const metadata = {
@@ -66,29 +67,11 @@ export default async function RootLayout({ children }) {
     // Pages françaises : <html lang="fr" dir="ltr">
     <html lang={isArabic ? 'ar' : 'fr'} dir={isArabic ? 'rtl' : 'ltr'}>
       <head>
-        {/* ✅ preconnect : réduit la latence des premières connexions */}
+        {/* Preconnect : réduit la latence Supabase + GA4 */}
         <link rel="preconnect" href="https://mpovugxbveqavhbjsttx.supabase.co" />
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://mpovugxbveqavhbjsttx.supabase.co" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-
-        {/* ✅ FIX RACE CONDITION GA4 — stub synchrone exécuté dès le parse HTML
-            window.gtag est disponible AVANT que tout composant React ne monte.
-            Les events pushés ici sont mis en file dans dataLayer et traités
-            automatiquement quand le script GA4 complet arrive (afterInteractive).
-            Sans ce stub, les events PWA tirés à 3s pouvaient arriver AVANT gtag. */}
-        {process.env.NEXT_PUBLIC_GA_ID && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}', { send_page_view: false });
-              `,
-            }}
-          />
-        )}
       </head>
       <body>
 
@@ -97,10 +80,7 @@ export default async function RootLayout({ children }) {
         {/* ✅ PWA Étape 5 — Banner d'installation (Android + iOS) */}
         <InstallBanner />
         {children}
-        {/* ✅ Bug #25 fix : ID GA via variable d'environnement
-            - Changer d'ID sans toucher au code : modifier .env.local + redéployer
-            - Guard : pas de script injecté si NEXT_PUBLIC_GA_ID non défini (env de test)
-            ✅ GA chargé APRÈS la page → ne bloque plus le rendu (économie ~140ms sur LCP) */}
+        {/* ✅ GA4 — chargé après la page (afterInteractive) pour ne pas bloquer le rendu */}
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>
             <Script
@@ -117,6 +97,8 @@ export default async function RootLayout({ children }) {
             </Script>
           </>
         )}
+        {/* PageViewTracker : envoie un page_view GA4 à chaque navigation SPA Next.js */}
+        <PageViewTracker />
       </body>
     </html>
   )
