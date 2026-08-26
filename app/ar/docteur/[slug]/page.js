@@ -2,6 +2,7 @@ import { supabase } from '../../../../lib/supabase'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { cache } from 'react'
+import { getSchemaSpecialty } from '../../../../lib/schemaSpecialties'
 
 export const revalidate = 3600
 
@@ -108,7 +109,7 @@ export default async function DoctorArPage({ params }) {
         '@id': `https://www.dalil-atibaa.com/ar/docteur/${doctor.slug}`,
         name: displayName,
         inLanguage: 'ar',
-        medicalSpecialty: doctor.specialties?.name_ar,
+        medicalSpecialty: getSchemaSpecialty(doctor.specialties?.slug),
         telephone: doctor.phone,
         address: {
           '@type': 'PostalAddress',

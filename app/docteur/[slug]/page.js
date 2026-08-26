@@ -7,6 +7,7 @@ import { CallButton, WhatsappButton, MapButton } from './DoctorButtons'
 import Logo from '../../components/Logo'
 
 import { getArticle } from '../../lib/grammarUtils'
+import { getSchemaSpecialty } from '../../lib/schemaSpecialties'
 export const revalidate = 3600
 
 // ✅ react cache() : la requête SQL est exécutée UNE SEULE FOIS par rendu de page.
@@ -120,7 +121,7 @@ if (!doctor) {
         '@type': ['Physician', 'MedicalBusiness'],
         '@id': `https://www.dalil-atibaa.com/docteur/${doctor.slug}`,
         name: doctor.name_fr,
-        medicalSpecialty: doctor.specialties?.name_fr,
+        medicalSpecialty: getSchemaSpecialty(doctor.specialties?.slug),
         telephone: doctor.phone,
         address: {
           '@type': 'PostalAddress',
