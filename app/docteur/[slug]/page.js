@@ -7,7 +7,7 @@ import { CallButton, WhatsappButton, MapButton } from './DoctorButtons'
 import Logo from '../../components/Logo'
 
 import { getArticle } from '../../lib/grammarUtils'
-import { getSchemaSpecialty } from '../../lib/schemaSpecialties'
+import { getSchemaSpecialty } from '../../../lib/schemaSpecialties'
 import OpeningHoursCard from './OpeningHoursCard'
 export const revalidate = 3600
 
