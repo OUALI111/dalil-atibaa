@@ -8,6 +8,7 @@ import Logo from '../../components/Logo'
 
 import { getArticle } from '../../lib/grammarUtils'
 import { getSchemaSpecialty } from '../../lib/schemaSpecialties'
+import OpeningHoursCard from './OpeningHoursCard'
 export const revalidate = 3600
 
 // ✅ react cache() : la requête SQL est exécutée UNE SEULE FOIS par rendu de page.
@@ -20,6 +21,7 @@ const getDoctorBySlug = cache(async (slug) => {
     .select(`
       id, name_fr, slug, address, phone, rating, reviews_count,
       google_map_url, latitude, longitude, is_dentflow, is_verified, booking_url,
+      commune, opening_hours, count_views,
       specialty_id, wilaya_id,
       specialties(id, name_fr, slug),
       wilayas(name_fr, slug)
@@ -51,10 +53,9 @@ export async function generateMetadata({ params }) {
   const servicesText = services.slice(0, 3).map(s => s.name_fr).join(', ')
 
   return {
-    // ✅ Correction accent : "a" → "à" (améliore le CTR dans Google)
-    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr} | Prenez RDV facilement sur Dalil Atibaa`,
-    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.wilayas?.name_fr}. Services: ${servicesText}. Prenez facilement rendez-vous en ligne.`,
-    keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.wilayas?.name_fr}, ${servicesText}`,
+    title: `${doctor.name_fr} - ${doctor.specialties?.name_fr} à ${doctor.commune ? `${doctor.commune}, ` : ''}${doctor.wilayas?.name_fr} | Dalil Atibaa`,
+    description: `Consultez ${doctor.name_fr}, ${doctor.specialties?.name_fr} à ${doctor.commune ? `${doctor.commune} (${doctor.wilayas?.name_fr})` : doctor.wilayas?.name_fr}. Services: ${servicesText}. Appelez directement ou prenez RDV en ligne.`,
+    keywords: `${doctor.name_fr}, ${doctor.specialties?.name_fr} ${doctor.commune || ''} ${doctor.wilayas?.name_fr}, ${servicesText}`,
     alternates: {
       canonical: `https://www.dalil-atibaa.com/docteur/${slug}`,
       languages: {
@@ -126,9 +127,22 @@ if (!doctor) {
         address: {
           '@type': 'PostalAddress',
           streetAddress: doctor.address,
-          addressLocality: doctor.wilayas?.name_fr,
+          addressLocality: doctor.commune || doctor.wilayas?.name_fr,
+          addressRegion: doctor.wilayas?.name_fr,
           addressCountry: 'DZ',
         },
+        ...(doctor.opening_hours && doctor.opening_hours.includes(' | ') && {
+          openingHours: doctor.opening_hours
+            .split(' | ')
+            .filter(e => !e.includes('Fermé'))
+            .map(e => {
+              const [day, hours] = e.split(': ')
+              const schemaDay = { dimanche:'Su', lundi:'Mo', mardi:'Tu', mercredi:'We', jeudi:'Th', vendredi:'Fr', samedi:'Sa' }
+              const d = schemaDay[day?.trim()]
+              return d && hours ? `${d} ${hours.replace('–','-')}` : null
+            })
+            .filter(Boolean)
+        }),
         aggregateRating: doctor.rating > 0 ? {
           '@type': 'AggregateRating',
           ratingValue: doctor.rating,
@@ -240,7 +254,20 @@ if (!doctor) {
                   </div>
                   <span className="text-sm font-semibold text-gray-700">{doctor.rating}</span>
                   <span className="text-sm text-gray-400">/ 5</span>
+                  {doctor.reviews_count > 0 && (
+                    <span className="text-xs text-gray-400 ml-1">· {doctor.reviews_count} avis</span>
+                  )}
                 </div>
+                {/* Compteur de vues */}
+                {doctor.count_views > 0 && (
+                  <div className="flex items-center gap-1.5 mt-2 text-xs text-gray-400">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span>{doctor.count_views.toLocaleString('fr-DZ')} personnes ont consulté ce profil</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -254,7 +281,12 @@ if (!doctor) {
                     </svg>
                   </div>
                   <span className="text-sm">
-                    <span className="font-medium text-gray-800">{doctor.wilayas.name_fr}</span>
+                    {doctor.commune && (
+                      <span className="font-medium text-gray-800">{doctor.commune}, </span>
+                    )}
+                    <span className={doctor.commune ? 'text-gray-500' : 'font-medium text-gray-800'}>
+                      {doctor.wilayas.name_fr}
+                    </span>
                     {doctor.address && <span className="text-gray-500"> — {doctor.address}</span>}
                   </span>
                 </div>
@@ -327,6 +359,9 @@ if (!doctor) {
               </div>
             </div>
           )}
+
+          {/* ── Horaires d'ouverture ─────────────────────────────────────── */}
+          <OpeningHoursCard openingHours={doctor.opening_hours} />
 
           {(doctor.google_map_url || (doctor.latitude && doctor.longitude)) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
