@@ -8,7 +8,7 @@ import Logo from '../../components/Logo'
 
 import { getArticle } from '../../lib/grammarUtils'
 import { getSchemaSpecialty } from '../../../lib/schemaSpecialties'
-import OpeningHoursCard from './OpeningHoursCard'
+import OpeningHoursCard from '../../components/OpeningHoursCard'
 export const revalidate = 3600
 
 // ✅ react cache() : la requête SQL est exécutée UNE SEULE FOIS par rendu de page.
