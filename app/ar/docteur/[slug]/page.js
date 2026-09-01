@@ -334,7 +334,7 @@ export default async function DoctorArPage({ params }) {
           )}
 
           {/* ── مواعيد العمل ─────────────────────────────────────────── */}
-          <OpeningHoursCard openingHours={doctor.opening_hours} />
+          <OpeningHoursCard openingHours={doctor.opening_hours} lang="ar" />
 
           {/* الخريطة */}
           {(doctor.google_map_url || (doctor.latitude && doctor.longitude)) && (
