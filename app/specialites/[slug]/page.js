@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { supabase } from '../../../lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -5,10 +6,28 @@ import ConseilGpsButton from '../../conseils/[slug]/ConseilGpsButton'
 
 export const revalidate = 3600
 
+/**
+ * ✅ CORRECTION 5 : cache() React sur la requête spécialité
+ *
+ * Avant : generateMetadata + SpecialitePage faisaient chacun 1 SELECT
+ *         → 2 requêtes SQL identiques par visite de page
+ *
+ * Après : cache() mémoïse le résultat dans le render tree React
+ *         → 1 seule requête SQL, résultat partagé entre les deux
+ *         → Identique à ce qui est fait dans app/docteur/[slug]/page.js
+ */
+const getSpecialty = cache(async (slug) => {
+  const { data } = await supabase
+    .from('specialties')
+    .select('*')
+    .eq('slug', slug)
+    .single()
+  return data
+})
+
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  const { data: specialty } = await supabase
-    .from('specialties').select('name_fr').eq('slug', slug).single()
+  const specialty = await getSpecialty(slug)
 
   if (!specialty) return { title: 'Spécialité introuvable' }
 
@@ -25,8 +44,9 @@ export default async function SpecialitePage({ params, searchParams }) {
   const page = parseInt(sp?.page || '0')
   const pageSize = 24
 
-  const { data: specialty } = await supabase
-    .from('specialties').select('*').eq('slug', slug).single()
+  // ✅ Résultat mis en cache par getSpecialty() — 0 nouvelle requête SQL
+  // React réutilise le même résultat que generateMetadata (appelé avant)
+  const specialty = await getSpecialty(slug)
 
   if (!specialty) notFound()
 
