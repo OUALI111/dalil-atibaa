@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-const ADMIN_USERNAME = 'LEADMAGNUS'
-const ADMIN_PASSWORD = 'GALAXTICOS2025'
+// ✅ SÉCURITÉ : credentials supprimés du bundle JS
+// Vérification via POST /api/admin/login côté serveur + cookie httpOnly
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -86,22 +86,36 @@ export default function AdminDashboard() {
   const [meilleursSuccess, setMeilleursSuccess] = useState('')
   const [meilleursError, setMeilleursError] = useState('')
 
+  // ✅ Vérifie le cookie httpOnly au chargement — restaure la session automatiquement
   useEffect(() => {
-    const auth = sessionStorage.getItem('admin_auth')
-    if (auth === 'true') { setIsAuthenticated(true); loadAllData() }
+    fetch('/api/admin/check')
+      .then(res => { if (res.ok) { setIsAuthenticated(true); loadAllData() } })
+      .catch(() => {})
   }, [])
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault()
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      sessionStorage.setItem('admin_auth', 'true')
-      setIsAuthenticated(true)
-      loadAllData()
-    } else { setError('Nom utilisateur ou mot de passe incorrect') }
+    setError('')
+    try {
+      // ✅ Vérification côté SERVEUR uniquement
+      const res = await fetch('/api/admin/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username, password }),
+      })
+      if (res.ok) {
+        setIsAuthenticated(true)
+        loadAllData()
+      } else {
+        setError('Nom utilisateur ou mot de passe incorrect')
+      }
+    } catch {
+      setError('Erreur de connexion, réessayez')
+    }
   }
 
-  function handleLogout() {
-    sessionStorage.removeItem('admin_auth')
+  async function handleLogout() {
+    await fetch('/api/admin/check', { method: 'POST' }).catch(() => {})
     setIsAuthenticated(false)
     setStats(null)
   }
