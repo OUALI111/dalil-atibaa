@@ -51,7 +51,9 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid event_type' }, { status: 400 })
     }
 
-    // Insérer uniquement les colonnes qui existent dans doctor_stats
+    // ✅ Un seul INSERT — le rollup pg_cron met à jour count_views toutes les 48h
+    // RPC increment_doctor_views supprimée : fonction inexistante dans Supabase (confirmé)
+    // Fallback views_count supprimé : mauvais nom de colonne, n'a jamais fonctionné
     const { error } = await supabase.from('doctor_stats').insert({
       doctor_id,
       event_type,
@@ -59,30 +61,6 @@ export async function POST(request) {
 
     if (error) {
       return Response.json({ error: error.message }, { status: 500 })
-    }
-
-    // Si c'est une vue, incrémenter le compteur cumulé views_count dans la table doctors
-    if (event_type === 'view') {
-      supabase.rpc('increment_doctor_views', { doc_id: doctor_id })
-        .catch(() => {})
-        .then(({ error: rpcError }) => {
-          if (rpcError) {
-            // Fallback si la fonction RPC n'existe pas
-            supabase.from('doctors')
-              .select('views_count')
-              .eq('id', doctor_id)
-              .single()
-              .then(({ data }) => {
-                if (data && data.views_count !== undefined) {
-                  supabase.from('doctors')
-                    .update({ views_count: (data.views_count || 0) + 1 })
-                    .eq('id', doctor_id)
-                    .then(() => {});
-                }
-              })
-              .catch(() => {});
-          }
-        });
     }
 
     return Response.json({ success: true })
