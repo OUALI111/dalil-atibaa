@@ -3,8 +3,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-const ADMIN_USERNAME = 'LEADMAGNUS'
-const ADMIN_PASSWORD = 'GALAXTICOS2025'
+// ✅ SÉCURITÉ : credentials supprimés du bundle JS
+// La vérification se fait via POST /api/admin/login côté serveur
+// Le cookie httpOnly est illisible par JavaScript
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -117,16 +118,31 @@ function MiniBar({ value, max, color }) {
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
-  const [u, setU] = useState('')
-  const [p, setP] = useState('')
-  const [err, setErr] = useState('')
+  const [u, setU]         = useState('')
+  const [p, setP]         = useState('')
+  const [err, setErr]     = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
-      onLogin()
-    } else {
-      setErr('Identifiants incorrects')
+    setLoading(true)
+    setErr('')
+    try {
+      // ✅ Vérification côté SERVEUR — credentials jamais dans le navigateur
+      const res = await fetch('/api/admin/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username: u, password: p }),
+      })
+      if (res.ok) {
+        onLogin()
+      } else {
+        setErr('Identifiants incorrects')
+      }
+    } catch {
+      setErr('Erreur de connexion, réessayez')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -144,27 +160,31 @@ function LoginScreen({ onLogin }) {
           <input
             value={u} onChange={e => setU(e.target.value)}
             placeholder="Identifiant"
+            autoComplete="username"
             className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-blue-200 focus:outline-none focus:border-blue-400 focus:bg-white/15 transition"
           />
           <input
             type="password"
             value={p} onChange={e => setP(e.target.value)}
             placeholder="Mot de passe"
+            autoComplete="current-password"
             className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-blue-200 focus:outline-none focus:border-blue-400 focus:bg-white/15 transition"
           />
           {err && <p className="text-red-300 text-sm text-center">{err}</p>}
           <button
             type="submit"
+            disabled={loading}
             style={{ backgroundColor: '#1E293B' }}
-            className="w-full hover:opacity-90 text-white py-3 rounded-xl font-semibold transition shadow-lg"
+            className="w-full hover:opacity-90 text-white py-3 rounded-xl font-semibold transition shadow-lg disabled:opacity-60"
           >
-            Accéder →
+            {loading ? 'Vérification...' : 'Accéder →'}
           </button>
         </form>
       </div>
     </div>
   )
 }
+
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function StatsDashboard() {
@@ -189,6 +209,13 @@ export default function StatsDashboard() {
   const [deserts,         setDeserts]         = useState(null)  // wilayas les moins couvertes
   const [searchStats,     setSearchStats]     = useState(null)  // données search_stats
   const [incompleteDocs,  setIncompleteDocs]  = useState(null)  // médecins incomplets (qualité)
+
+  // ✅ Vérification cookie de session au chargement — restaure la session automatiquement
+  useEffect(() => {
+    fetch('/api/admin/check')
+      .then(res => { if (res.ok) setIsAuth(true) })
+      .catch(() => {})
+  }, [])
 
   // ── fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
