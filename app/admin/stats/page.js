@@ -189,7 +189,7 @@ function LoginScreen({ onLogin }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function StatsDashboard() {
   const [isAuth, setIsAuth] = useState(false)
-  const [period, setPeriod] = useState('30d')
+  const [period, setPeriod] = useState('today')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('views')
   const [loading, setLoading] = useState(false)
@@ -764,16 +764,12 @@ export default function StatsDashboard() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Period selector */}
-            <div className="flex bg-gray-100 rounded-xl p-1 gap-1 flex-wrap">
+            {/* Period selector — uniquement les périodes avec données réelles */}
+            <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
               {[
-                ['today', "Aujourd'hui"],
+                ['today',     "Aujourd'hui"],
                 ['yesterday', 'Hier'],
-                ['7d', '7 jours'],
-                ['15d', '15 jours'],
-                ['30d', '1 mois'],
-                ['90d', '3 mois'],
-                ['all', 'Tout']
+                ['all',       'Tout (historique)']
               ].map(([v, l]) => (
                 <button
                   key={v}
@@ -786,6 +782,13 @@ export default function StatsDashboard() {
                 </button>
               ))}
             </div>
+
+            {/* Note explicative — évite la confusion sur les périodes */}
+            <span className="text-xs text-gray-400 hidden sm:block">
+              {period === 'all'
+                ? '📊 Compteurs cumulés depuis le lancement'
+                : '⏱ Événements des 48 dernières heures'}
+            </span>
 
             <button
               onClick={fetchData}
@@ -811,14 +814,10 @@ export default function StatsDashboard() {
             trend={prevTotals ? calcTrend(totals.views, prevTotals.views) : null}
             sub={
               period === 'all'
-                ? 'Toutes périodes'
+                ? 'Historique complet'
                 : period === 'today'
                 ? "Aujourd'hui"
-                : period === 'yesterday'
-                ? 'Hier'
-                : period === '15d'
-                ? 'Ces 15 derniers jours'
-                : `Ces ${period === '7d' ? '7' : period === '30d' ? '30' : '90'} derniers jours`
+                : 'Hier'
             }
           />
           <StatCard icon="📞" label="Clics Appel" value={fmtNum(totals.calls)}
