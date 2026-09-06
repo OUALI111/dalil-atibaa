@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { rateLimit, getClientIp } from '../../../lib/rateLimit'
 
 const BOT_UA_PATTERNS = [
   /bot/i, /crawl/i, /spider/i, /slurp/i, /fetch/i,
@@ -21,6 +22,22 @@ export async function POST(request) {
     const userAgent = request.headers.get('user-agent') || ''
     if (isServerBot(userAgent)) {
       return Response.json({ skipped: 'bot' })
+    }
+
+    // ✅ Rate limiting : max 10 requêtes par IP par minute
+    // Protège contre les bots qui contournent le filtre User-Agent
+    const ip = getClientIp(request)
+    const { limited, retryAfter } = rateLimit({
+      ip,
+      route:    'track',
+      limit:    10,
+      windowMs: 60 * 1000, // 1 minute
+    })
+    if (limited) {
+      return Response.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      )
     }
 
     const { doctor_id, event_type } = await request.json()

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { rateLimit, getClientIp } from '../../../lib/rateLimit'
 
 /**
  * POST /api/pwa-track
@@ -13,6 +14,22 @@ import { supabase } from '../../../lib/supabase'
  * }
  */
 export async function POST(request) {
+  // ✅ Rate limiting : max 20 requêtes par IP par heure
+  // Les événements PWA sont rares — 20/heure est très généreux pour un vrai utilisateur
+  const ip = getClientIp(request)
+  const { limited, retryAfter } = rateLimit({
+    ip,
+    route:    'pwa-track',
+    limit:    20,
+    windowMs: 60 * 60 * 1000, // 1 heure
+  })
+  if (limited) {
+    return Response.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+    )
+  }
+
   try {
     const body = await request.json()
     const { event, platform, page, step } = body
