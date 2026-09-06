@@ -3,15 +3,28 @@
 // Accepte POST { query, wilaya_id, specialty_id, results_count, gps_used }
 // Fire-and-forget côté client (sendBeacon ou fetch) → jamais bloquant pour l'UX
 
-import { createClient } from '@supabase/supabase-js'
-import { NextResponse }  from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+// ✅ CORRECTION 3 : import du singleton au lieu de createClient() dupliqué
+// createClient() à chaque invocation Serverless = nouvelle connexion TCP vers Supabase
+// Le singleton réutilise la connexion existante → économise le pool (60 max sur Micro)
+import { supabase }              from '../../../lib/supabase'
+import { NextResponse }          from 'next/server'
+import { rateLimit, getClientIp } from '../../../lib/rateLimit'
 
 export async function POST(request) {
+  // ✅ Rate limiting : max 30 requêtes par IP par minute
+  // Une recherche par seconde est déjà très rapide pour un humain
+  const ip = getClientIp(request)
+  const { limited, retryAfter } = rateLimit({
+    ip,
+    route:    'search-track',
+    limit:    30,
+    windowMs: 60 * 1000, // 1 minute
+  })
+  if (limited) {
+    // Fire-and-forget → on retourne ok:false sans bloquer l'UX
+    return NextResponse.json({ ok: false, reason: 'rate_limited' })
+  }
+
   try {
     const body = await request.json()
     const { query, wilaya_id, specialty_id, results_count, gps_used } = body
