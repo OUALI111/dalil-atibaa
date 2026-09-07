@@ -367,7 +367,7 @@ export default async function RecherchePage({ searchParams }) {
               ? `Trouvez les meilleurs ${specialite} en Algérie. Notre annuaire recense tous les ${specialite} avec leurs coordonnées complètes.`
               : wilaya
               ? `Découvrez tous les médecins disponibles à ${wilaya}. Filtrez par spécialité pour trouver rapidement le médecin qu&apos;il vous faut.`
-              : `Dalil Atibaa recense plus de 1000 médecins dans les 58 wilayas d&apos;Algérie. Recherchez par spécialité, wilaya ou nom du médecin.`}
+              : `Dalil Atibaa recense plus de 6500 médecins dans les 58 wilayas Algérie. Recherchez par spécialité, wilaya ou nom du médecin.`}
           </p>
           <div className="grid md:grid-cols-2 gap-3">
             {[

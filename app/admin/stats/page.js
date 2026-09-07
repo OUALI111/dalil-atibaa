@@ -1,183 +1,143 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import Link from 'next/link'
+import { supabase } from '../../../lib/supabase'
+import {
+  Phone,
+  Eye,
+  MessageCircle,
+  MapPin,
+  TrendingUp,
+  TrendingDown,
+  Search,
+  Download,
+  RefreshCw,
+  AlertCircle,
+  Calendar,
+  Users,
+  CheckCircle,
+  Clock,
+  Smartphone,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpRight,
+  Activity,
+  Sparkles,
+  Compass,
+  LogOut,
+  Layers,
+  Award,
+  BarChart2
+} from 'lucide-react'
 
-// ✅ SÉCURITÉ : credentials supprimés du bundle JS
-// La vérification se fait via POST /api/admin/login côté serveur
-// Le cookie httpOnly est illisible par JavaScript
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
-function getPeriodRange(period) {
-  const now = new Date()
-  const start = new Date(now)
-  
-  if (period === 'today') {
-    start.setHours(0, 0, 0, 0)
-    return start.toISOString()
-  }
-  if (period === 'yesterday') {
-    start.setDate(now.getDate() - 1)
-    start.setHours(0, 0, 0, 0)
-    return start.toISOString()
-  }
-  if (period === '7d')  start.setDate(now.getDate() - 7)
-  if (period === '15d') start.setDate(now.getDate() - 15)
-  if (period === '30d') start.setDate(now.getDate() - 30)
-  if (period === '90d') start.setDate(now.getDate() - 90)
-  if (period === 'all') return null
-  return start.toISOString()
+// ─── Formateurs utilitaires ──────────────────────────────────────────────────
+function fmt(num) {
+  if (num === null || num === undefined) return '0'
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'k'
+  return num.toLocaleString('fr-FR')
 }
 
-function fmtNum(n) {
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
-  return n
+function calcTrend(curr, prev) {
+  if (!prev || prev === 0) return curr > 0 ? 100 : 0
+  return Math.round(((curr - prev) / prev) * 100)
 }
 
-function convRate(views, calls) {
-  if (!views) return '0%'
-  return Math.round((calls / views) * 100) + '%'
+function calcConvRate(calls, whatsapp, views) {
+  if (!views || views === 0) return '0%'
+  const totalActions = (calls || 0) + (whatsapp || 0)
+  return ((totalActions / views) * 100).toFixed(1) + '%'
 }
 
-// ─── calcTrend : retourne le delta % entre current et prev ───────────────────
-function calcTrend(current, prev) {
-  if (prev === null || prev === undefined) return null
-  if (prev === 0) return current > 0 ? 100 : null
-  return Math.round(((current - prev) / prev) * 100)
-}
-
-// ─── getPrevPeriodRange : plage de la période précédente ─────────────────────
-function getPrevPeriodRange(period) {
-  const now = new Date()
-  if (period === 'all') return { since: null, until: null, skip: true }
-
-  if (period === 'today') {
-    const startToday = new Date(now); startToday.setHours(0, 0, 0, 0)
-    const startYest  = new Date(startToday); startYest.setDate(startYest.getDate() - 1)
-    return { since: startYest.toISOString(), until: startToday.toISOString() }
-  }
-  if (period === 'yesterday') {
-    const startYest     = new Date(now); startYest.setDate(now.getDate() - 1); startYest.setHours(0,0,0,0)
-    const startDayBefore = new Date(startYest); startDayBefore.setDate(startDayBefore.getDate() - 1)
-    return { since: startDayBefore.toISOString(), until: startYest.toISOString() }
-  }
-  const daysMap = { '7d': 7, '15d': 15, '30d': 30, '90d': 90 }
-  const d = daysMap[period]
-  if (d) {
-    const until = new Date(now); until.setDate(until.getDate() - d)
-    const since = new Date(until); since.setDate(since.getDate() - d)
-    return { since: since.toISOString(), until: until.toISOString() }
-  }
-  return { since: null, until: null, skip: true }
-}
-
-// ─── StatCard ────────────────────────────────────────────────────────────────
-function StatCard({ icon, label, value, color, sub, trend }) {
-  const trendEl = trend !== null && trend !== undefined ? (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full mt-1.5 ${
-      trend > 0  ? 'bg-green-50 text-green-600' :
-      trend < 0  ? 'bg-red-50   text-red-500'   :
-                   'bg-gray-50  text-gray-400'
-    }`}>
-      {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'} {trend > 0 ? '+' : ''}{trend}% vs période préc.
-    </span>
-  ) : null
-
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4 transition hover:shadow-md">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 ${color}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-        <p className="text-sm text-gray-500">{label}</p>
-        {trendEl}
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
-// ─── MiniBar ─────────────────────────────────────────────────────────────────
-function MiniBar({ value, max, color }) {
-  const pct = max ? Math.round((value / max) * 100) : 0
-  return (
-    <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
-      <div
-        className={`h-1.5 rounded-full ${color}`}
-        style={{ width: `${pct}%`, transition: 'width 0.6s ease' }}
-      />
-    </div>
-  )
-}
-
-// ─── Login ────────────────────────────────────────────────────────────────────
+// ─── Composant Écran de Connexion Sécurisé ─────────────────────────────────────
 function LoginScreen({ onLogin }) {
-  const [u, setU]         = useState('')
-  const [p, setP]         = useState('')
-  const [err, setErr]     = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const submit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setErr('')
+    setError('')
     try {
-      // ✅ Vérification côté SERVEUR — credentials jamais dans le navigateur
       const res = await fetch('/api/admin/login', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ username: u, password: p }),
+        body: JSON.stringify({ username, password }),
       })
       if (res.ok) {
         onLogin()
       } else {
-        setErr('Identifiants incorrects')
+        setError('Identifiants administrateur incorrects')
       }
     } catch {
-      setErr('Erreur de connexion, réessayez')
+      setError('Erreur de connexion serveur, veuillez réessayer')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Halo décoratif d'arrière-plan */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md bg-slate-900/90 backdrop-blur-xl rounded-3xl p-8 border border-slate-800 shadow-2xl relative z-10">
         <div className="text-center mb-8">
-          <div style={{ backgroundColor: 'rgba(26, 135, 216, 0.2)', borderColor: 'rgba(26, 135, 216, 0.3)' }} className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border">
-            <span className="text-3xl">📊</span>
+          <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-400">
+            <Activity className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Statistiques</h1>
-          <p style={{ color: '#e8f4fc' }} className="text-sm mt-1">Dalil Atibaa — Admin</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Dalil Atibaa Admin</h1>
+          <p className="text-slate-400 text-sm mt-1">Console de pilotage & analytics</p>
         </div>
-        <form onSubmit={submit} className="space-y-4">
-          <input
-            value={u} onChange={e => setU(e.target.value)}
-            placeholder="Identifiant"
-            autoComplete="username"
-            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-blue-200 focus:outline-none focus:border-blue-400 focus:bg-white/15 transition"
-          />
-          <input
-            type="password"
-            value={p} onChange={e => setP(e.target.value)}
-            placeholder="Mot de passe"
-            autoComplete="current-password"
-            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-blue-200 focus:outline-none focus:border-blue-400 focus:bg-white/15 transition"
-          />
-          {err && <p className="text-red-300 text-sm text-center">{err}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Identifiant
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Admin username"
+              autoComplete="username"
+              required
+              className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Mot de passe
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••••••"
+              autoComplete="current-password"
+              required
+              className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+            />
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            style={{ backgroundColor: '#1E293B' }}
-            className="w-full hover:opacity-90 text-white py-3 rounded-xl font-semibold transition shadow-lg disabled:opacity-60"
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-semibold transition shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
           >
-            {loading ? 'Vérification...' : 'Accéder →'}
+            {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Accéder au Dashboard →'}
           </button>
         </form>
       </div>
@@ -185,1499 +145,1126 @@ function LoginScreen({ onLogin }) {
   )
 }
 
-
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
-export default function StatsDashboard() {
-  const [isAuth, setIsAuth] = useState(false)
-  const [period, setPeriod] = useState('today')
-  const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState('views')
-  const [loading, setLoading] = useState(false)
-  const [rawStats, setRawStats] = useState([])
-  const [doctors, setDoctors] = useState({})
-  const [totals, setTotals]       = useState({ views: 0, calls: 0, whatsapp: 0, maps: 0 })
-  const [prevTotals, setPrevTotals] = useState(null)   // période précédente pour calcul tendance
-  const [chartData, setChartData]  = useState([])
-  const [hoveredBar, setHoveredBar] = useState(null) // index de la colonne survolée (tooltip)
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize]       = useState(10)
-  const [topDoctorToday, setTopDoctorToday] = useState(null)  // médecin le + vu aujourd'hui
-  const [inactiveCount,   setInactiveCount]  = useState(null)  // médecins actifs sans aucune vue
-  const [pwaData,         setPwaData]         = useState(null)  // événements PWA bruts
-  const [deserts,         setDeserts]         = useState(null)  // wilayas les moins couvertes
-  const [searchStats,     setSearchStats]     = useState(null)  // données search_stats
-  const [incompleteDocs,  setIncompleteDocs]  = useState(null)  // médecins incomplets (qualité)
-
-  // ✅ Vérification cookie de session au chargement — restaure la session automatiquement
-  useEffect(() => {
-    fetch('/api/admin/check')
-      .then(res => { if (res.ok) setIsAuth(true) })
-      .catch(() => {})
-  }, [])
-
-  // ── fetch data ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isAuth) return
-    fetchData()
-  }, [isAuth, period])
-
-  // Réinitialiser la page courante lors du changement des filtres ou de recherche
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, sortBy, period])
-
-  // Médecin du jour + alertes + PWA — chargés une fois à la connexion admin
-  useEffect(() => {
-    if (!isAuth) return
-    fetchTopDoctorToday()
-    fetchInactiveCount()
-    fetchPwaStats()
-    fetchDesertsMedicaux()
-    fetchSearchStats()
-    fetchIncompleteDoctors()
-  }, [isAuth])
-
-
-  // ── fetchTopDoctorToday : médecin avec le + de vues aujourd'hui ────────────
-  async function fetchTopDoctorToday() {
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    const { data } = await supabase
-      .from('doctor_stats')
-      .select('doctor_id')
-      .eq('event_type', 'view')
-      .gte('created_at', todayStart.toISOString())
-
-    if (!data || data.length === 0) { setTopDoctorToday(null); return }
-
-    // Agrège les vues par médecin côté client
-    const counts = {}
-    data.forEach(r => { counts[r.doctor_id] = (counts[r.doctor_id] || 0) + 1 })
-    const [topId, viewsToday] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
-
-    const { data: doc } = await supabase
-      .from('doctors')
-      .select('id, name_fr, slug, specialties(name_fr), wilayas(name_fr)')
-      .eq('id', Number(topId))
-      .single()
-
-    if (doc) setTopDoctorToday({ ...doc, viewsToday })
-    else     setTopDoctorToday(null)
-  }
-
-  // ── fetchInactiveCount : médecins actifs sans aucune vue enregistrée ─────────────────
-  async function fetchInactiveCount() {
-    // Une seule requête COUNT côté Supabase — très efficace
-    const { count } = await supabase
-      .from('doctors')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .eq('count_views', 0)
-    setInactiveCount(count || 0)
-  }
-
-  // ── fetchPwaStats : événements PWA depuis la table pwa_stats ──────────────────────
-  async function fetchPwaStats() {
-    const { data, error } = await supabase
-      .from('pwa_stats')
-      .select('event, platform, created_at')
-      .order('created_at', { ascending: false })
-      .limit(5000)
-    if (error) console.error('[fetchPwaStats] Erreur RLS ou table manquante :', error.message)
-    setPwaData(data || [])
-  }
-
-  // ── fetchDesertsMedicaux : wilayas avec le moins de médecins actifs ──────────────────
-  async function fetchDesertsMedicaux() {
-    const [{ data: docs }, { data: allWilayas }] = await Promise.all([
-      supabase.from('doctors').select('wilaya_id').eq('is_active', true),
-      supabase.from('wilayas').select('id, name_fr').order('name_fr')
-    ])
-    if (!docs || !allWilayas) { setDeserts([]); return }
-    const countByWilaya = {}
-    docs.forEach(d => {
-      if (d.wilaya_id) countByWilaya[d.wilaya_id] = (countByWilaya[d.wilaya_id] || 0) + 1
-    })
-    const result = allWilayas
-      .map(w => ({ name: w.name_fr, doctors: countByWilaya[w.id] || 0 }))
-      .sort((a, b) => a.doctors - b.doctors)
-      .slice(0, 10)
-    setDeserts(result)
-  }
-
-  // ── fetchSearchStats : 30 derniers jours depuis search_stats ───────────────────────
-  async function fetchSearchStats() {
-    const since = new Date()
-    since.setDate(since.getDate() - 30)
-    const { data } = await supabase
-      .from('search_stats')
-      .select('query, wilaya_id, specialty_id, results_count, gps_used, created_at')
-      .gte('created_at', since.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(5000)
-    setSearchStats(data || [])
-  }
-
-  // ── fetchIncompleteDoctors : médecins actifs avec données manquantes ─────────────────
-  async function fetchIncompleteDoctors() {
-    const [{ data: noPhone }, { data: noAddress }, { data: noGPS }] = await Promise.all([
-      supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true)
-        .or('phone.is.null,phone.eq.,phone.eq.N/A').limit(100),
-      supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true)
-        .or('address.is.null,address.eq.,address.eq.N/A').limit(100),
-      supabase.from('doctors').select('id, name_fr, slug').eq('is_active', true)
-        .is('latitude', null).limit(100),
-    ])
-    setIncompleteDocs({
-      noPhone:   noPhone   || [],
-      noAddress: noAddress || [],
-      noGPS:     noGPS     || [],
-    })
-  }
-
-  // ── Helper : lit doctor_stats en entier par boucles de 1000 (contourne la limite Supabase) ─
-  async function fetchStatsWithPagination(since, until) {
-
-    const allStats = []
-    let from = 0
-    const batchSize = 1000
-    let fetched = 0
-    do {
-      let query = supabase
-        .from('doctor_stats')
-        .select('doctor_id, event_type, created_at')
-        .range(from, from + batchSize - 1)
-      if (since) {
-        if (until) {
-          query = query.gte('created_at', since).lte('created_at', until)
-        } else {
-          query = query.gte('created_at', since)
-        }
-      }
-      const { data, error } = await query
-      if (error) break
-      fetched = (data || []).length
-      allStats.push(...(data || []))
-      from += batchSize
-    } while (fetched === batchSize)
-    return allStats
-  }
-
-  // ── Helper : 4 COUNT queries parallèles pour la période précédente (très efficace) ─
-  async function fetchPrevTotals(since, until) {
-    const countFor = async (eventType) => {
-      let q = supabase
-        .from('doctor_stats')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_type', eventType)
-      if (since) q = q.gte('created_at', since)
-      if (until) q = q.lt('created_at', until)
-      const { count } = await q
-      return count || 0
-    }
-    const [views, calls, whatsapp, maps] = await Promise.all([
-      countFor('view'),
-      countFor('call_click'),
-      countFor('whatsapp_click'),
-      countFor('map_click'),
-    ])
-    return { views, calls, whatsapp, maps }
-  }
-
-  // ── fetch data ──────────────────────────────────────────────────────────────
-  async function fetchData() {
-    setLoading(true)
-    try {
-      // Lance la récupération de la période précédente EN PARALLÈLE dès le début
-      const prevRange = getPrevPeriodRange(period)
-      const prevPromise = prevRange.skip
-        ? Promise.resolve(null)
-        : fetchPrevTotals(prevRange.since, prevRange.until)
-
-      if (period === 'all') {
-        // ════════════════════════════════════════════════════════════════════
-        // MODE "TOUT" : lecture des compteurs agrégés count_* depuis doctors
-        // Filtre côté serveur (actifs seulement) + pagination pour dépasser
-        // la limite 1000 de Supabase (6684 médecins dans la DB, 1887 actifs)
-        // ════════════════════════════════════════════════════════════════════
-        const activeDocs = []
-        let fromDocs = 0
-        const batchDocs = 1000
-        let fetchedDocs = 0
-        do {
-          const { data: batch, error: batchErr } = await supabase
-            .from('doctors')
-            .select('id, name_fr, slug, phone, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
-            .or('count_views.gt.0,count_calls.gt.0,count_whatsapp.gt.0,count_maps.gt.0')
-            .range(fromDocs, fromDocs + batchDocs - 1)
-          if (batchErr) break
-          fetchedDocs = (batch || []).length
-          activeDocs.push(...(batch || []))
-          fromDocs += batchDocs
-        } while (fetchedDocs === batchDocs)
-
-        const doctorMap = {}
-        activeDocs.forEach(d => { doctorMap[d.id] = d })
-        setDoctors(doctorMap)
-
-        const rawStatsData = activeDocs.map(d => ({
-          id: d.id,
-          views:    d.count_views    || 0,
-          calls:    d.count_calls    || 0,
-          whatsapp: d.count_whatsapp || 0,
-          maps:     d.count_maps     || 0,
-        }))
-        setRawStats(rawStatsData)
-
-        // Totaux globaux
-        setTotals({
-          views:    rawStatsData.reduce((s, r) => s + r.views, 0),
-          calls:    rawStatsData.reduce((s, r) => s + r.calls, 0),
-          whatsapp: rawStatsData.reduce((s, r) => s + r.whatsapp, 0),
-          maps:     rawStatsData.reduce((s, r) => s + r.maps, 0),
-        })
-
-        // Graphique : événements récents dans doctor_stats (nouvelles visites non encore rollupées)
-        const recentStats = await fetchStatsWithPagination(null, null)
-        const dailyCounts = {}
-        for (const s of recentStats) {
-          const day = s.created_at.slice(0, 10)
-          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0, whatsapp: 0 }
-          if (s.event_type === 'view')            dailyCounts[day].views++
-          if (s.event_type === 'call_click')      dailyCounts[day].calls++
-          if (s.event_type === 'whatsapp_click')  dailyCounts[day].whatsapp++
-        }
-        const days = Object.keys(dailyCounts).sort().slice(-14)
-        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls, whatsapp: dailyCounts[d].whatsapp })))
-
-      } else {
-        // ════════════════════════════════════════════════════════════════════
-        // MODE PÉRIODE SPÉCIFIQUE : lecture complète de doctor_stats avec pagination
-        // → lit toutes les lignes par boucles de 1000, sans jamais perdre de données
-        // ════════════════════════════════════════════════════════════════════
-        let since = getPeriodRange(period)
-        let until = null
-
-        if (period === 'yesterday') {
-          const startOfYesterday = new Date()
-          startOfYesterday.setDate(startOfYesterday.getDate() - 1)
-          startOfYesterday.setHours(0, 0, 0, 0)
-          since = startOfYesterday.toISOString()
-          const endOfYesterday = new Date()
-          endOfYesterday.setDate(endOfYesterday.getDate() - 1)
-          endOfYesterday.setHours(23, 59, 59, 999)
-          until = endOfYesterday.toISOString()
-        }
-
-        const stats = await fetchStatsWithPagination(since, until)
-
-        // Récupère les infos médecins pour les IDs trouvés
-        const ids = [...new Set(stats.map(s => s.doctor_id))].filter(Boolean)
-        let doctorMap = {}
-        if (ids.length > 0) {
-          const { data: docs } = await supabase
-            .from('doctors')
-            .select('id, name_fr, slug, phone, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)')
-            .in('id', ids)
-          ;(docs || []).forEach(d => { doctorMap[d.id] = d })
-        }
-        setDoctors(doctorMap)
-
-        // Agrège par médecin
-        const agg = {}
-        const dailyCounts = {}
-        for (const s of stats) {
-          if (!agg[s.doctor_id]) agg[s.doctor_id] = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
-          if (s.event_type === 'view')           agg[s.doctor_id].views++
-          if (s.event_type === 'call_click')     agg[s.doctor_id].calls++
-          if (s.event_type === 'whatsapp_click') agg[s.doctor_id].whatsapp++
-          if (s.event_type === 'map_click')      agg[s.doctor_id].maps++
-          const day = s.created_at.slice(0, 10)
-          if (!dailyCounts[day]) dailyCounts[day] = { views: 0, calls: 0, whatsapp: 0 }
-          if (s.event_type === 'view')            dailyCounts[day].views++
-          if (s.event_type === 'call_click')      dailyCounts[day].calls++
-          if (s.event_type === 'whatsapp_click')  dailyCounts[day].whatsapp++
-        }
-
-        setRawStats(Object.entries(agg).map(([id, v]) => ({ id: Number(id), ...v })))
-        setTotals({
-          views:    Object.values(agg).reduce((s, r) => s + r.views, 0),
-          calls:    Object.values(agg).reduce((s, r) => s + r.calls, 0),
-          whatsapp: Object.values(agg).reduce((s, r) => s + r.whatsapp, 0),
-          maps:     Object.values(agg).reduce((s, r) => s + r.maps, 0),
-        })
-        const days = Object.keys(dailyCounts).sort().slice(-14)
-        setChartData(days.map(d => ({ day: d.slice(5), views: dailyCounts[d].views, calls: dailyCounts[d].calls, whatsapp: dailyCounts[d].whatsapp })))
-      }
-
-      // Attend la période précédente et met à jour le state
-      const prev = await prevPromise
-      setPrevTotals(prev)
-
-    } catch (e) {
-      console.error(e)
-    }
-    setLoading(false)
-  }
-
-  // E1 — Export CSV amélioré : téléphone, URL, métadonnées, taux conv global, ligne totaux
-  function exportCsv() {
-    if (rows.length === 0) return
-
-    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const periodLabel = {
-      today: "Aujourd'hui", yesterday: 'Hier', '7d': '7 derniers jours',
-      '30d': '30 derniers jours', '90d': '90 derniers jours', all: 'Depuis le début'
-    }[period] || period
-    const exportDate = new Date().toLocaleString('fr-FR')
-    const baseUrl = 'https://dalil-atibaa.vercel.app/docteur/'
-
-    // Lignes métadonnées
-    const meta = [
-      `"Export Dalil Atibaa",,"Période : ${periodLabel}",,"Exporté le : ${exportDate}"`,
-      `"Nombre de médecins : ${rows.length}",,"Total vues : ${rows.reduce((s, r) => s + r.views, 0)}",,"Total interactions : ${rows.reduce((s, r) => s + r.calls + r.whatsapp + r.maps, 0)}"`,
-      '', // ligne vide séparatrice
-    ]
-
-    // En-têtes enrichis
-    const headers = ['Nom', 'Spécialité', 'Wilaya', 'Téléphone', 'Vues', 'Appels', 'WhatsApp', 'Carte', 'Interactions', 'Conv.(%)', 'URL Profil']
-
-    // Lignes de données
-    const csvRows = rows.map(r => {
-      const interactions = (r.calls || 0) + (r.whatsapp || 0) + (r.maps || 0)
-      const conv = r.views > 0 ? Math.round((interactions / r.views) * 100) : 0
-      return [
-        esc(r.name),
-        esc(r.specialty),
-        esc(r.wilaya),
-        esc(r.phone),
-        r.views    || 0,
-        r.calls    || 0,
-        r.whatsapp || 0,
-        r.maps     || 0,
-        interactions,
-        `${conv}%`,
-        esc(`${baseUrl}${r.slug}`),
-      ]
-    })
-
-    // Ligne totaux
-    const totalViews        = rows.reduce((s, r) => s + (r.views    || 0), 0)
-    const totalCalls        = rows.reduce((s, r) => s + (r.calls    || 0), 0)
-    const totalWhatsapp     = rows.reduce((s, r) => s + (r.whatsapp || 0), 0)
-    const totalMaps         = rows.reduce((s, r) => s + (r.maps     || 0), 0)
-    const totalInteractions = totalCalls + totalWhatsapp + totalMaps
-    const totalConv = totalViews > 0 ? Math.round((totalInteractions / totalViews) * 100) : 0
-    const totalsRow = ['"TOTAL"', '""', '""', '""', totalViews, totalCalls, totalWhatsapp, totalMaps, totalInteractions, `"${totalConv}%"`, '""']
-
-    const csvContent = [
-      ...meta,
-      headers.join(','),
-      ...csvRows.map(row => row.join(',')),
-      '',
-      totalsRow.join(',')
-    ].join('\n')
-
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.setAttribute('href', url)
-    link.setAttribute('download', `dalil_stats_${period}_${new Date().toISOString().slice(0, 10)}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
-  // ── filtered + sorted rows ──────────────────────────────────────────────────
-  const rows = useMemo(() => {
-    let list = rawStats
-      .filter(r => !!doctors[r.id]) // Exclut les médecins qui ont été supprimés de la base
-      .map(r => ({
-        ...r,
-        doctor: doctors[r.id],
-        name: doctors[r.id]?.name_fr || `#${r.id}`,
-        specialty: doctors[r.id]?.specialties?.name_fr || '—',
-        wilaya: doctors[r.id]?.wilayas?.name_fr || '—',
-        slug: doctors[r.id]?.slug || '',
-        phone: doctors[r.id]?.phone || '',
-        globalViews: doctors[r.id]?.count_views || 0,
-      }))
-
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      list = list.filter(r =>
-        r.name.toLowerCase().includes(q) ||
-        r.specialty.toLowerCase().includes(q) ||
-        r.wilaya.toLowerCase().includes(q)
-      )
-    }
-
-    list.sort((a, b) => b[sortBy] - a[sortBy])
-    return list
-  }, [rawStats, doctors, search, sortBy])
-
-  // Pagination Logic
-  const paginatedRows = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize
-    return rows.slice(startIndex, startIndex + pageSize)
-  }, [rows, currentPage, pageSize])
-
-  const totalPages = Math.ceil(rows.length / pageSize)
-
-  const maxViews = useMemo(() => Math.max(...rows.map(r => r.views), 1), [rows])
-  const maxCalls = useMemo(() => Math.max(...rows.map(r => r.calls), 1), [rows])
-
-  // ── chart max ────────────────────────────────────────────────────────────────
-  // chartMax inclut les 3 séries pour un axe Y cohérent
-  const chartMax = useMemo(() => Math.max(...chartData.map(d => Math.max(d.views, d.calls, d.whatsapp || 0)), 1), [chartData])
-
-  // ── D3 : analytics des recherches ────────────────────────────────────────────────
-  // Top 10 requêtes les plus fréquentes
-  const topQueries = useMemo(() => {
-    if (!searchStats?.length) return []
-    const counts = {}
-    searchStats.filter(r => r.query?.trim()).forEach(r => {
-      const q = r.query.trim().toLowerCase()
-      counts[q] = (counts[q] || 0) + 1
-    })
-    return Object.entries(counts).map(([query, count]) => ({ query, count }))
-      .sort((a, b) => b.count - a.count).slice(0, 10)
-  }, [searchStats])
-
-  // Top 5 recherches sans résultat (opportunités)
-  const zeroResultQueries = useMemo(() => {
-    if (!searchStats?.length) return []
-    const counts = {}
-    searchStats.filter(r => r.results_count === 0).forEach(r => {
-      const key = r.query?.trim().toLowerCase() || `(gps sans spécialité)`
-      counts[key] = (counts[key] || 0) + 1
-    })
-    return Object.entries(counts).map(([query, count]) => ({ query, count }))
-      .sort((a, b) => b.count - a.count).slice(0, 5)
-  }, [searchStats])
-
-  // Heure de pointe (24h)
-  const peakHours = useMemo(() => {
-    if (!searchStats?.length) return Array(24).fill(0).map((_, h) => ({ h, count: 0 }))
-    const hours = Array(24).fill(0)
-    searchStats.forEach(r => { hours[new Date(r.created_at).getHours()]++ })
-    return hours.map((count, h) => ({ h, count }))
-  }, [searchStats])
-
-  // ── PWA stats calculées depuis pwaData ────────────────────────────────────────────
-  const pwaStats = useMemo(() => {
-    if (!pwaData) return null
-    const count = (evt) => pwaData.filter(r => r.event === evt).length
-    const bannerShown      = count('banner_shown')
-    const installClicked   = count('install_clicked')
-    const installAccepted  = count('install_accepted')
-    const installDismissed = count('install_dismissed')
-    const sessionPWA       = count('session_standalone')
-    const android = pwaData.filter(r => r.platform === 'android').length
-    const ios     = pwaData.filter(r => r.platform === 'ios').length
-    const platformTotal   = android + ios || 1
-    const androidPct = Math.round((android / platformTotal) * 100)
-    const iosPct     = 100 - androidPct
-    const refusalRate = bannerShown ? Math.round((installDismissed / bannerShown) * 100) : 0
-    const installRate = bannerShown ? Math.round((installAccepted  / bannerShown) * 100) : 0
-    // Graphique installations quotidiennes (30 derniers jours)
-    const since30 = new Date(); since30.setDate(since30.getDate() - 30)
-    const byDay = {}
-    pwaData
-      .filter(r => r.event === 'install_accepted' && new Date(r.created_at) >= since30)
-      .forEach(r => { const d = r.created_at.slice(5, 10); byDay[d] = (byDay[d] || 0) + 1 })
-    const dailyInstalls = Object.entries(byDay)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([day, cnt]) => ({ day, cnt }))
-    return { bannerShown, installClicked, installAccepted, installDismissed, sessionPWA, android, ios, androidPct, iosPct, refusalRate, installRate, dailyInstalls }
-  }, [pwaData])
-
-  // Conversion Globale
-  const totalInteractions = totals.calls + totals.whatsapp + totals.maps
-  const globalConvRate = totals.views > 0 ? Math.round((totalInteractions / totals.views) * 100) : 0
-
-  // C1 — Top 10 Wilayas avec médecins actifs + taux de conversion
-  const topWilayas = useMemo(() => {
-    const stats = {}
-    rows.forEach(r => {
-      if (r.wilaya && r.wilaya !== '—') {
-        if (!stats[r.wilaya]) stats[r.wilaya] = { views: 0, interactions: 0, doctors: 0 }
-        stats[r.wilaya].views        += r.views
-        stats[r.wilaya].interactions += (r.calls || 0) + (r.whatsapp || 0) + (r.maps || 0)
-        stats[r.wilaya].doctors      += 1
-      }
-    })
-    return Object.entries(stats)
-      .map(([name, s]) => ({
-        name,
-        views:    s.views,
-        doctors:  s.doctors,
-        convRate: s.views > 0 ? Math.round((s.interactions / s.views) * 100) : 0,
-      }))
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 10)
-  }, [rows])
-
-  // C2 — Top 10 Spécialités avec taux de conversion
-  const topSpecialties = useMemo(() => {
-    const stats = {}
-    rows.forEach(r => {
-      if (r.specialty && r.specialty !== '—') {
-        if (!stats[r.specialty]) stats[r.specialty] = { views: 0, interactions: 0, doctors: 0 }
-        stats[r.specialty].views        += r.views
-        stats[r.specialty].interactions += (r.calls || 0) + (r.whatsapp || 0) + (r.maps || 0)
-        stats[r.specialty].doctors      += 1
-      }
-    })
-    return Object.entries(stats)
-      .map(([name, s]) => ({
-        name,
-        views:    s.views,
-        doctors:  s.doctors,
-        convRate: s.views > 0 ? Math.round((s.interactions / s.views) * 100) : 0,
-      }))
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 10)
-  }, [rows])
-
-  if (!isAuth) return <LoginScreen onLogin={() => setIsAuth(true)} />
+// ─── StatCard Élégante ────────────────────────────────────────────────────────
+function StatCard({ icon: Icon, label, value, subtext, trend, color = 'blue' }) {
+  const colorStyles = {
+    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  }[color] || 'bg-slate-800 text-slate-400 border-slate-700'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5 shadow-sm hover:border-slate-700 transition">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{label}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-white mt-1.5 tracking-tight">{value}</p>
+        </div>
+        <div className={`p-3 rounded-xl border ${colorStyles}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
+      <div className="mt-3 flex items-center justify-between text-xs">
+        {subtext && <span className="text-slate-500">{subtext}</span>}
+        {trend !== undefined && trend !== null && (
+          <span
+            className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full ${
+              trend > 0
+                ? 'bg-emerald-500/10 text-emerald-400'
+                : trend < 0
+                ? 'bg-rose-500/10 text-rose-400'
+                : 'bg-slate-800 text-slate-400'
+            }`}
+          >
+            {trend > 0 ? <TrendingUp className="w-3 h-3" /> : trend < 0 ? <TrendingDown className="w-3 h-3" /> : null}
+            {trend > 0 ? `+${trend}%` : `${trend}%`} vs hier
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Dashboard Principal ──────────────────────────────────────────────────────
+export default function AdminDashboard() {
+  const [isAuth, setIsAuth] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
+  const [activeTab, setActiveTab] = useState('direct') // 'direct' | 'roi' | 'opportunities'
+
+  // Vérification cookie de session au chargement
+  useEffect(() => {
+    fetch('/api/admin/check')
+      .then((res) => {
+        if (res.ok) setIsAuth(true)
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecking(false))
+  }, [])
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/check', { method: 'POST' }).catch(() => {})
+    setIsAuth(false)
+  }
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+        <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    )
+  }
+
+  if (!isAuth) {
+    return <LoginScreen onLogin={() => setIsAuth(true)} />
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {/* Header Général */}
+      <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
-              <span className="text-white text-lg">📊</span>
+            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
+              <Activity className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-lg leading-none">Statistiques</h1>
-              <p className="text-xs text-gray-400">Dalil Atibaa — Admin</p>
+              <span className="font-bold text-white text-base tracking-tight">Dalil Atibaa</span>
+              <span className="ml-2 px-2 py-0.5 text-[11px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
+                Admin Console
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Period selector — uniquement les périodes avec données réelles */}
-            <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
-              {[
-                ['today',     "Aujourd'hui"],
-                ['yesterday', 'Hier'],
-                ['all',       'Tout (historique)']
-              ].map(([v, l]) => (
-                <button
-                  key={v}
-                  onClick={() => setPeriod(v)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                    period === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-
-            {/* Note explicative — évite la confusion sur les périodes */}
-            <span className="text-xs text-gray-400 hidden sm:block">
-              {period === 'all'
-                ? '📊 Compteurs cumulés depuis le lancement'
-                : '⏱ Événements des 48 dernières heures'}
-            </span>
-
+          {/* Navigation par Onglets */}
+          <nav className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
             <button
-              onClick={fetchData}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl font-medium transition"
+              onClick={() => setActiveTab('direct')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
+                activeTab === 'direct'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
             >
-              <span className={loading ? 'animate-spin' : ''}>↻</span>
-              Actualiser
+              <Clock className="w-4 h-4" />
+              <span>Direct (48h)</span>
             </button>
 
-            <a href="/admin/404" className="text-sm text-gray-400 hover:text-blue-600 transition px-2">
-              Admin →
-            </a>
+            <button
+              onClick={() => setActiveTab('roi')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
+                activeTab === 'roi'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              <span>Valeur & ROI</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('opportunities')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
+                activeTab === 'opportunities'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Search className="w-4 h-4" />
+              <span>Opportunités</span>
+            </button>
+          </nav>
+
+          {/* Actions Droite */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/404"
+              className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 transition"
+            >
+              Gestion Redirections
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition"
+              title="Déconnexion"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      {/* Contenu de la Vue Active */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+        {activeTab === 'direct' && <ViewDirect />}
+        {activeTab === 'roi' && <ViewRoi />}
+        {activeTab === 'opportunities' && <ViewOpportunities />}
+      </main>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon="👁" label="Visites" value={fmtNum(totals.views)}
-            color="bg-blue-50 text-blue-600"
-            trend={prevTotals ? calcTrend(totals.views, prevTotals.views) : null}
-            sub={
-              period === 'all'
-                ? 'Historique complet'
-                : period === 'today'
-                ? "Aujourd'hui"
-                : 'Hier'
+      {/* Footer */}
+      <footer className="border-t border-slate-800/60 py-4 text-center text-xs text-slate-500">
+        Dalil Atibaa — Système d'analytics sécurisé & optimisé
+      </footer>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ⚡ VUE 1 : DIRECT 48H (LE POULS EN TEMPS RÉEL)
+// ══════════════════════════════════════════════════════════════════════════════
+function ViewDirect() {
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    today: { views: 0, calls: 0, whatsapp: 0, maps: 0 },
+    yesterday: { views: 0, calls: 0, whatsapp: 0, maps: 0 },
+    hourlyToday: Array(24).fill(0).map(() => ({ views: 0, calls: 0 })),
+    topDoctorsToday: [],
+    pwaStats: { standaloneToday: 0, totalRecent: 0, android: 0, ios: 0 },
+  })
+
+  const fetchDirectData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const now = new Date()
+      const startOfToday = new Date(now)
+      startOfToday.setHours(0, 0, 0, 0)
+
+      const startOfYesterday = new Date(startOfToday)
+      startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+
+      // Récupérer les événements des 48 dernières heures depuis doctor_stats
+      const { data: events, error } = await supabase
+        .from('doctor_stats')
+        .select('doctor_id, event_type, created_at')
+        .gte('created_at', startOfYesterday.toISOString())
+
+      if (error) throw error
+
+      const todayCounts = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
+      const yesterdayCounts = { views: 0, calls: 0, whatsapp: 0, maps: 0 }
+      const hourly = Array(24).fill(0).map(() => ({ views: 0, calls: 0 }))
+      const doctorScores = {}
+
+      const startOfTodayMs = startOfToday.getTime()
+
+      events?.forEach((evt) => {
+        const evtDate = new Date(evt.created_at)
+        const evtMs = evtDate.getTime()
+        const isToday = evtMs >= startOfTodayMs
+
+        if (isToday) {
+          if (evt.event_type === 'view') {
+            todayCounts.views++
+            hourly[evtDate.getHours()].views++
+          } else if (evt.event_type === 'call_click') {
+            todayCounts.calls++
+            hourly[evtDate.getHours()].calls++
+          } else if (evt.event_type === 'whatsapp_click') {
+            todayCounts.whatsapp++
+            hourly[evtDate.getHours()].calls++ // comptabilisé dans les contacts
+          } else if (evt.event_type === 'map_click') {
+            todayCounts.maps++
+          }
+
+          // Score médecin aujourd'hui (Appels comptent triple, WhatsApp double, vue simple)
+          if (evt.doctor_id) {
+            if (!doctorScores[evt.doctor_id]) {
+              doctorScores[evt.doctor_id] = { id: evt.doctor_id, views: 0, calls: 0, whatsapp: 0, score: 0 }
             }
-          />
-          <StatCard icon="📞" label="Clics Appel" value={fmtNum(totals.calls)}
-            color="bg-green-50 text-green-600"
-            trend={prevTotals ? calcTrend(totals.calls, prevTotals.calls) : null}
-            sub={`Taux: ${convRate(totals.views, totals.calls)}`}
-          />
-          <StatCard icon="💬" label="Clics WhatsApp" value={fmtNum(totals.whatsapp)}
-            color="bg-emerald-50 text-emerald-600"
-            trend={prevTotals ? calcTrend(totals.whatsapp, prevTotals.whatsapp) : null}
-            sub={`Taux: ${convRate(totals.views, totals.whatsapp)}`}
-          />
-          <StatCard icon="🗺" label="Clics Carte" value={fmtNum(totals.maps)}
-            color="bg-orange-50 text-orange-600"
-            trend={prevTotals ? calcTrend(totals.maps, prevTotals.maps) : null}
-            sub={`Taux: ${convRate(totals.views, totals.maps)}`}
-          />
+            if (evt.event_type === 'view') {
+              doctorScores[evt.doctor_id].views++
+              doctorScores[evt.doctor_id].score += 1
+            } else if (evt.event_type === 'call_click') {
+              doctorScores[evt.doctor_id].calls++
+              doctorScores[evt.doctor_id].score += 4
+            } else if (evt.event_type === 'whatsapp_click') {
+              doctorScores[evt.doctor_id].whatsapp++
+              doctorScores[evt.doctor_id].score += 3
+            }
+          }
+        } else {
+          if (evt.event_type === 'view') yesterdayCounts.views++
+          else if (evt.event_type === 'call_click') yesterdayCounts.calls++
+          else if (evt.event_type === 'whatsapp_click') yesterdayCounts.whatsapp++
+          else if (evt.event_type === 'map_click') yesterdayCounts.maps++
+        }
+      })
+
+      // Top 5 médecins aujourd'hui
+      const topIds = Object.values(doctorScores)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+
+      let topDoctorsDetailed = []
+      if (topIds.length > 0) {
+        const { data: docs } = await supabase
+          .from('doctors')
+          .select('id, name_fr, slug, specialties(name_fr), wilayas(name_fr)')
+          .in('id', topIds.map((d) => d.id))
+
+        const docMap = {}
+        docs?.forEach((d) => { docMap[d.id] = d })
+
+        topDoctorsDetailed = topIds.map((item) => ({
+          ...item,
+          doctor: docMap[item.id] || null,
+        }))
+      }
+
+      // Stats PWA rapides (dernières 24-48h)
+      const { data: pwaRows } = await supabase
+        .from('pwa_stats')
+        .select('event, platform, created_at')
+        .gte('created_at', startOfToday.toISOString())
+
+      let standaloneToday = 0
+      let android = 0
+      let ios = 0
+
+      pwaRows?.forEach((r) => {
+        if (r.event === 'session_standalone') standaloneToday++
+        if (r.platform === 'android') android++
+        if (r.platform === 'ios') ios++
+      })
+
+      setStats({
+        today: todayCounts,
+        yesterday: yesterdayCounts,
+        hourlyToday: hourly,
+        topDoctorsToday: topDoctorsDetailed,
+        pwaStats: {
+          standaloneToday,
+          totalRecent: pwaRows?.length || 0,
+          android,
+          ios,
+        },
+      })
+    } catch (err) {
+      console.error('Erreur chargement Direct:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchDirectData()
+  }, [fetchDirectData])
+
+  const convRateToday = calcConvRate(stats.today.calls, stats.today.whatsapp, stats.today.views)
+  const convRateYesterday = calcConvRate(stats.yesterday.calls, stats.yesterday.whatsapp, stats.yesterday.views)
+
+  return (
+    <div className="space-y-6">
+      {/* Barre de statut supérieure */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4">
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white">Activité en Direct — Aujourd'hui</h2>
+            <p className="text-xs text-slate-400">Événements enregistrés au cours des dernières 48 heures</p>
+          </div>
         </div>
 
-        {/* ── Médecin du jour ───────────────────────────────────────────────── */}
-        {topDoctorToday && (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 text-white flex items-center justify-between gap-4 flex-wrap shadow-lg">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-xl font-extrabold shrink-0">
-                {topDoctorToday.name_fr?.charAt(0)}
-              </div>
-              <div>
-                <p className="text-xs text-blue-100 font-semibold uppercase tracking-widest mb-0.5">
-                  ⭐ Médecin du jour
-                </p>
-                <p className="font-bold text-lg leading-tight">{topDoctorToday.name_fr}</p>
-                <p className="text-blue-100 text-sm mt-0.5">
-                  {topDoctorToday.specialties?.name_fr}
-                  {topDoctorToday.wilayas?.name_fr ? ` · ${topDoctorToday.wilayas.name_fr}` : ''}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-6 flex-wrap">
-              <div className="text-center">
-                <p className="text-4xl font-extrabold tabular-nums">{topDoctorToday.viewsToday}</p>
-                <p className="text-xs text-blue-100 mt-0.5">vues aujourd'hui</p>
-              </div>
-              <a
-                href={`/docteur/${topDoctorToday.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-white text-blue-600 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition shadow-sm flex items-center gap-1.5 whitespace-nowrap"
-              >
-                Voir la fiche →
-              </a>
-            </div>
-          </div>
-        )}
+        <button
+          onClick={fetchDirectData}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition border border-slate-700 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-400' : ''}`} />
+          <span>Actualiser</span>
+        </button>
+      </div>
 
-        {/* ── Alerte médecins inactifs ────────────────────────────────────────────── */}
-        {inactiveCount > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-lg shrink-0">
-                ⚠️
-              </div>
-              <div>
-                <p className="font-bold text-orange-800">
-                  {inactiveCount} médecin{inactiveCount > 1 ? 's' : ''} sans aucune visite
-                </p>
-                <p className="text-sm text-orange-600">
-                  Ces profils sont actifs mais n'ont jamais été visités. Pensez à compléter leurs fiches.
-                </p>
-              </div>
-            </div>
-            <a
-              href="/admin/404"
-              className="bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm px-4 py-2 rounded-xl transition whitespace-nowrap"
-            >
-              Gérer les fiches →
-            </a>
-          </div>
-        )}
+      {/* Cartes Compteurs Aujourd'hui vs Hier */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={Eye}
+          label="Profils Consultés"
+          value={fmt(stats.today.views)}
+          subtext={`Hier: ${fmt(stats.yesterday.views)}`}
+          trend={calcTrend(stats.today.views, stats.yesterday.views)}
+          color="blue"
+        />
+        <StatCard
+          icon={Phone}
+          label="Appels Téléphoniques"
+          value={fmt(stats.today.calls)}
+          subtext={`Hier: ${fmt(stats.yesterday.calls)}`}
+          trend={calcTrend(stats.today.calls, stats.yesterday.calls)}
+          color="emerald"
+        />
+        <StatCard
+          icon={MessageCircle}
+          label="Clics WhatsApp"
+          value={fmt(stats.today.whatsapp)}
+          subtext={`Hier: ${fmt(stats.yesterday.whatsapp)}`}
+          trend={calcTrend(stats.today.whatsapp, stats.yesterday.whatsapp)}
+          color="emerald"
+        />
+        <StatCard
+          icon={Sparkles}
+          label="Taux de Contact Réel"
+          value={convRateToday}
+          subtext={`Hier: ${convRateYesterday}`}
+          color="purple"
+        />
+      </div>
 
-        {/* Performance & Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Card Performance */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-1 flex flex-col justify-between">
+      {/* Graphique d'activité Heure par Heure + Top Praticiens du Jour */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Graphique Heure par Heure */}
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <span className="text-yellow-500">⚡</span> Performance Globale
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">Ratio total des interactions (Appel, WhatsApp, Map) par rapport aux visites uniques.</p>
-              
-              <div className="flex items-center justify-center py-6">
-                <div className="relative flex items-center justify-center">
-                  <svg className="w-32 h-32 transform -rotate-90">
-                    <circle cx="64" cy="64" r="54" stroke="#f3f4f6" strokeWidth="10" fill="transparent" />
-                    <circle cx="64" cy="64" r="54" stroke="#3b82f6" strokeWidth="10" fill="transparent" 
-                      strokeDasharray={339.3}
-                      strokeDashoffset={339.3 - (339.3 * Math.min(globalConvRate, 100)) / 100}
-                      className="transition-all duration-1000 ease-out"
-                    />
-                  </svg>
-                  <div className="absolute text-center">
-                    <span className="text-3xl font-extrabold text-gray-900">{globalConvRate}%</span>
-                    <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Conversion</p>
-                  </div>
-                </div>
-              </div>
+              <h3 className="text-sm font-bold text-white">Fréquentation Heure par Heure (Aujourd'hui)</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Vues de fiches médicales par tranche horaire</p>
             </div>
-            
-            <div className="border-t border-gray-50 pt-4 mt-2">
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>Total visites : <b>{totals.views}</b></span>
-                <span>Interactions : <b>{totalInteractions}</b></span>
-              </div>
+            <div className="flex items-center gap-4 text-xs">
+              <span className="flex items-center gap-1.5 text-blue-400 font-medium">
+                <span className="w-2.5 h-2.5 bg-blue-500 rounded-sm inline-block" /> Vues
+              </span>
+              <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-sm inline-block" /> Appels
+              </span>
             </div>
           </div>
 
-          {/* Chart */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
-            <h2 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
-              <span className="text-blue-600">📈</span>
-              Évolution 14 jours — Visites · Appels · WhatsApp
-            </h2>
-            {chartData.length > 0 ? (
-              <>
-                {/* Colonnes de barres */}
-                <div className="flex items-end gap-1.5 h-40 pb-2 overflow-x-auto">
-                  {chartData.map((d, i) => {
-                    const hMax = chartMax || 1
-                    const hViews    = Math.max(hMax ? (d.views / hMax) * 100 : 0, d.views > 0 ? 4 : 0)
-                    const hCalls    = Math.max(hMax ? (d.calls / hMax) * 100 : 0, d.calls > 0 ? 4 : 0)
-                    const hWhatsapp = Math.max(hMax ? ((d.whatsapp || 0) / hMax) * 100 : 0, (d.whatsapp || 0) > 0 ? 4 : 0)
-                    return (
-                      <div
-                        key={i}
-                        className="relative flex flex-col items-center gap-0.5 flex-1 min-w-[26px] cursor-default"
-                        onMouseEnter={() => setHoveredBar(i)}
-                        onMouseLeave={() => setHoveredBar(null)}
+          {/* Barres Horaires */}
+          <div className="h-48 flex items-end gap-1 sm:gap-1.5 pt-6 pb-2 border-b border-slate-800">
+            {stats.hourlyToday.map((item, idx) => {
+              const maxViews = Math.max(...stats.hourlyToday.map((h) => h.views), 10)
+              const heightPct = Math.round((item.views / maxViews) * 100)
+
+              return (
+                <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
+                  {/* Tooltip au survol */}
+                  <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center z-20 pointer-events-none">
+                    <div className="bg-slate-800 border border-slate-700 text-[11px] rounded-lg p-2 shadow-xl whitespace-nowrap text-center">
+                      <p className="font-bold text-white">{idx}h00 - {idx + 1}h00</p>
+                      <p className="text-blue-400">{item.views} vues</p>
+                      <p className="text-emerald-400">{item.calls} contacts</p>
+                    </div>
+                    <div className="w-2 h-2 bg-slate-800 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
+                  </div>
+
+                  {/* Barre d'activité */}
+                  <div
+                    style={{ height: `${Math.max(heightPct, 4)}%` }}
+                    className={`w-full rounded-t-sm transition-all duration-300 ${
+                      item.views > 0
+                        ? 'bg-blue-600 group-hover:bg-blue-400'
+                        : 'bg-slate-800/40'
+                    }`}
+                  />
+                  <span className="text-[9px] text-slate-500 mt-1 font-mono">{idx % 3 === 0 ? `${idx}h` : ''}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="text-[11px] text-slate-500 mt-3 text-right">Heures locales algériennes (GMT+1)</p>
+        </div>
+
+        {/* Top 5 Praticiens du Jour */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col">
+          <div className="flex items-center gap-2 mb-4">
+            <Award className="w-5 h-5 text-amber-400" />
+            <h3 className="text-sm font-bold text-white">Top 5 Médecins Demandés Aujourd'hui</h3>
+          </div>
+
+          {stats.topDoctorsToday.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-center p-6 text-slate-500 text-xs">
+              Aucune interaction enregistrée pour le moment aujourd'hui.
+            </div>
+          ) : (
+            <div className="space-y-3 flex-1">
+              {stats.topDoctorsToday.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="p-3 bg-slate-800/50 hover:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-between gap-3 transition"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-5 h-5 rounded-full bg-slate-700 text-slate-300 text-[11px] font-bold flex items-center justify-center shrink-0">
+                      {idx + 1}
+                    </span>
+                    <div className="truncate">
+                      <Link
+                        href={`/docteur/${item.doctor?.slug || item.id}`}
+                        target="_blank"
+                        className="text-xs font-semibold text-white hover:text-blue-400 transition truncate block"
                       >
-                        {/* Tooltip */}
-                        {hoveredBar === i && (
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded-xl px-3 py-2 whitespace-nowrap z-20 shadow-xl pointer-events-none">
-                            <p className="font-bold text-gray-300 mb-1 text-center">{d.day}</p>
-                            <p className="text-blue-300">👁 {d.views} vues</p>
-                            <p className="text-green-300">📞 {d.calls} appels</p>
-                            <p className="text-purple-300">💬 {d.whatsapp || 0} WhatsApp</p>
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-                          </div>
-                        )}
-                        {/* Barres empilées */}
-                        <div className="w-full flex flex-col items-center justify-end h-28 gap-px">
-                          <div className="w-full rounded-t-sm bg-purple-400 transition-all duration-500"
-                            style={{ height: `${hWhatsapp}px` }} />
-                          <div className="w-full bg-green-400 transition-all duration-500"
-                            style={{ height: `${hCalls}px` }} />
-                          <div className="w-full rounded-b-sm bg-blue-500 transition-all duration-500"
-                            style={{ height: `${hViews}px` }} />
-                        </div>
-                        <span className={`text-[9px] whitespace-nowrap transition-colors ${
-                          hoveredBar === i ? 'text-gray-700 font-semibold' : 'text-gray-400'
-                        }`}>{d.day}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-                {/* Légende */}
-                <div className="flex items-center gap-5 mt-3 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <div className="w-3 h-3 rounded-sm bg-blue-500" /> Visites
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <div className="w-3 h-3 rounded-sm bg-green-400" /> Appels
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <div className="w-3 h-3 rounded-sm bg-purple-400" /> WhatsApp
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
-                Pas assez de données pour afficher le graphique d'évolution quotidien
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Top 10 Wilayas & Spécialités */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Top Wilayas */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="font-bold text-gray-900 mb-4 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <span className="text-blue-500">📍</span> Top 10 Wilayas
-              </span>
-              <span className="text-xs text-gray-400 font-normal">vues · médecins · conversion</span>
-            </h2>
-            {topWilayas.length > 0 ? (
-              <div className="space-y-2.5">
-                {topWilayas.map((w, idx) => {
-                  const maxVal = topWilayas[0].views || 1
-                  const barPct = Math.round((w.views / maxVal) * 100)
-                  return (
-                    <div key={idx}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-medium text-gray-700 truncate max-w-[140px]">
-                          <span className="text-gray-400 mr-1">{idx + 1}.</span>{w.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">
-                            👨‍⚕️ {w.doctors}
-                          </span>
-                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
-                            w.convRate >= 10 ? 'bg-green-50 text-green-600' :
-                            w.convRate >= 5  ? 'bg-blue-50  text-blue-500'  :
-                                               'bg-gray-50  text-gray-400'
-                          }`}>
-                            {w.convRate}%
-                          </span>
-                          <span className="font-semibold text-gray-800 w-16 text-right">{fmtNum(w.views)}</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-1.5">
-                        <div
-                          className="h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-700"
-                          style={{ width: `${barPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 py-4 text-center">Aucune donnée disponible</p>
-            )}
-          </div>
-
-          {/* Top Spécialités */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="font-bold text-gray-900 mb-4 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <span className="text-indigo-500">🩺</span> Top 10 Spécialités
-              </span>
-              <span className="text-xs text-gray-400 font-normal">vues · médecins · conversion</span>
-            </h2>
-            {topSpecialties.length > 0 ? (
-              <div className="space-y-2.5">
-                {topSpecialties.map((s, idx) => {
-                  const maxVal = topSpecialties[0].views || 1
-                  const barPct = Math.round((s.views / maxVal) * 100)
-                  return (
-                    <div key={idx}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-medium text-gray-700 truncate max-w-[140px]">
-                          <span className="text-gray-400 mr-1">{idx + 1}.</span>{s.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">
-                            👨‍⚕️ {s.doctors}
-                          </span>
-                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
-                            s.convRate >= 10 ? 'bg-green-50 text-green-600' :
-                            s.convRate >= 5  ? 'bg-indigo-50 text-indigo-500' :
-                                               'bg-gray-50  text-gray-400'
-                          }`}>
-                            {s.convRate}%
-                          </span>
-                          <span className="font-semibold text-gray-800 w-16 text-right">{fmtNum(s.views)}</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-1.5">
-                        <div
-                          className="h-1.5 rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-all duration-700"
-                          style={{ width: `${barPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 py-4 text-center">Aucune donnée disponible</p>
-            )}
-          </div>
-        </div>
-
-        {/* ── C3 Déserts Médicaux ───────────────────────────────────────────────────────────── */}
-        {deserts && deserts.length > 0 && (
-          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-                <span>🏕️</span> Déserts Médicaux
-              </h2>
-              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full font-medium">
-                Wilayas les moins couvertes
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {deserts.map((w, i) => {
-                const level =
-                  w.doctors === 0 ? { label: 'Désert total',      bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700',    dot: 'bg-red-500'    } :
-                  w.doctors <= 3  ? { label: 'Critique',           bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400' } :
-                                    { label: 'Couverture faible',  bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400' }
-                return (
-                  <div key={i} className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${level.bg} ${level.border}`}>
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${level.dot}`} />
-                      <div>
-                        <p className="font-semibold text-gray-800 text-sm">{w.name}</p>
-                        <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${level.badge}`}>
-                          {level.label}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-2xl font-extrabold text-gray-900 leading-none">{w.doctors}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">médecin{w.doctors > 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <p className="text-xs text-gray-400 mt-4 text-center">
-              Source : médecins actifs dans la base de données — indépendant de la période sélectionnée
-            </p>
-          </div>
-        )}
-
-        {/* ── D3 : Analytiques des recherches ───────────────────────────────────── */}
-        {searchStats !== null && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-
-            {/* En-tête */}
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-                <span>🔍</span> Analytiques des Recherches
-                <span className="text-xs text-gray-400 font-normal">(30 derniers jours)</span>
-              </h2>
-              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
-                {fmtNum(searchStats.length)} recherches
-              </span>
-            </div>
-
-            {searchStats.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                <p className="text-4xl mb-3">📊</p>
-                <p className="font-semibold text-gray-500">En attente de données</p>
-                <p className="text-sm mt-1 text-center">Les recherches des utilisateurs apparaîtront ici dès que le tracking sera actif.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* Top 10 requêtes */}
-                <div className="lg:col-span-2 space-y-2">
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">📅 Top 10 Recherches</p>
-                  {topQueries.length > 0 ? topQueries.map(({ query, count }, i) => {
-                    const pct = Math.round((count / (topQueries[0]?.count || 1)) * 100)
-                    return (
-                      <div key={i}>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="truncate max-w-[240px] font-medium text-gray-700">
-                            <span className="text-gray-400 mr-1">{i + 1}.</span>{query}
-                          </span>
-                          <span className="font-bold text-gray-900 ml-2 shrink-0">{count}×</span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5">
-                          <div className="h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-700" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    )
-                  }) : (
-                    <p className="text-sm text-gray-400 py-4 text-center">Aucune requête texte saisie pour l&apos;instant</p>
-                  )}
-                </div>
-
-                {/* Droite : sans résultats + heure de pointe */}
-                <div className="space-y-6">
-
-                  {/* Sans résultats */}
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">🚫 Sans résultat</p>
-                    {zeroResultQueries.length > 0 ? (
-                      <div className="space-y-2">
-                        {zeroResultQueries.map(({ query, count }, i) => (
-                          <div key={i} className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
-                            <span className="text-sm text-orange-800 truncate max-w-[140px] font-medium">{query}</span>
-                            <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full ml-2 shrink-0">{count}×</span>
-                          </div>
-                        ))}
-                        <p className="text-xs text-gray-400 mt-2">💡 Ces requêtes sont des opportunités — ajouter ces médecins !</p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400 py-2">✅ Toutes les recherches ont trouvé des résultats</p>
-                    )}
-                  </div>
-
-                  {/* Heure de pointe */}
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">⏰ Heure de pointe</p>
-                    <div className="flex items-end gap-px h-16">
-                      {(() => {
-                        const maxCount = Math.max(...peakHours.map(d => d.count), 1)
-                        return peakHours.map(({ h, count }) => (
-                          <div key={h} className="relative flex flex-col items-center flex-1 group">
-                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] rounded-md px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 z-10 pointer-events-none">
-                              {h}h : {count}
-                            </div>
-                            <div
-                              className={`w-full rounded-t-sm transition-all duration-500 ${count === maxCount ? 'bg-blue-500' : 'bg-blue-200'}`}
-                              style={{ height: `${Math.max((count / maxCount) * 52, count > 0 ? 3 : 0)}px` }}
-                            />
-                          </div>
-                        ))
-                      })()}
-                    </div>
-                    <div className="flex justify-between text-[9px] text-gray-400 mt-1">
-                      <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+                        {item.doctor?.name_fr || `Médecin #${item.id}`}
+                      </Link>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {item.doctor?.specialties?.name_fr || 'Médecin'} • {item.doctor?.wilayas?.name_fr || 'Algérie'}
+                      </p>
                     </div>
                   </div>
 
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── SECTION PWA ───────────────────────────────────────────────────────────── */}
-        {pwaStats && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-
-            {/* En-tête */}
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-                <span>📱</span> Statistiques PWA &amp; Installation
-              </h2>
-              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
-                {pwaStats.bannerShown} événements total
-              </span>
-            </div>
-
-            {/* B2 — Funnel d'installation */}
-            <div>
-              <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Entonnoir d'installation</p>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  { icon: '📢', label: 'Banner affiché', value: pwaStats.bannerShown,      pct: null,    color: 'text-gray-400 bg-gray-50' },
-                  { icon: '👆', label: 'Clic Installer',  value: pwaStats.installClicked,  pct: pwaStats.bannerShown     ? Math.round((pwaStats.installClicked  / pwaStats.bannerShown)     * 100) : 0, color: 'text-blue-600 bg-blue-50'   },
-                  { icon: '✅',    label: 'Installés',      value: pwaStats.installAccepted, pct: pwaStats.installClicked  ? Math.round((pwaStats.installAccepted / pwaStats.installClicked) * 100) : 0, color: 'text-green-600 bg-green-50' },
-                  { icon: '📱',    label: 'Sessions PWA',  value: pwaStats.sessionPWA,      pct: pwaStats.installAccepted ? Math.round((pwaStats.sessionPWA       / pwaStats.installAccepted) * 100) : 0, color: 'text-purple-600 bg-purple-50' },
-                ].map(({ icon, label, value, pct, color }, i) => (
-                  <div key={i} className="relative">
-                    {i < 3 && (
-                      <span className="hidden lg:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 text-gray-300 font-black text-lg">›</span>
-                    )}
-                    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
-                      <p className="text-2xl mb-2">{icon}</p>
-                      <p className="text-2xl font-extrabold text-gray-900">{fmtNum(value)}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-                      {pct !== null && (
-                        <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full mt-1.5 ${color}`}>
-                          {pct}% de passage
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2 shrink-0 text-xs">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20" title="Appels reçus">
+                      📞 {item.calls}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium" title="Vues reçues">
+                      👁 {item.views}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* B3 — KPIs PWA + Plateforme */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              {/* KPIs */}
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">KPIs clés</p>
-                {[
-                  { label: 'Taux d’installation', value: `${pwaStats.installRate}%`,   sub: `${pwaStats.installAccepted} installés / ${pwaStats.bannerShown} banners`,  bar: pwaStats.installRate,   color: 'bg-green-500' },
-                  { label: 'Taux de refus',        value: `${pwaStats.refusalRate}%`,  sub: `${pwaStats.installDismissed} refus / ${pwaStats.bannerShown} banners`,      bar: pwaStats.refusalRate,   color: 'bg-red-400'   },
-                  { label: 'Sessions PWA totales', value: fmtNum(pwaStats.sessionPWA), sub: 'Ouvertures depuis l’app installée',                                        bar: pwaStats.sessionPWA > 0 ? Math.min(Math.round((pwaStats.sessionPWA / Math.max(pwaStats.installAccepted, 1)) * 100), 100) : 0, color: 'bg-purple-500' },
-                ].map(({ label, value, sub, bar, color }) => (
-                  <div key={label} className="bg-gray-50 rounded-xl p-3">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-gray-600">{label}</span>
-                      <span className="font-bold text-gray-900">{value}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
-                      <div className={`${color} h-1.5 rounded-full transition-all duration-700`} style={{ width: `${Math.min(bar, 100)}%` }} />
-                    </div>
-                    <p className="text-xs text-gray-400">{sub}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Plateforme Android vs iOS */}
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Plateforme</p>
-                <div className="bg-gray-50 rounded-xl p-4 space-y-4">
-                  {[
-                    { icon: '🤖', label: 'Android', pct: pwaStats.androidPct, count: pwaStats.android, color: 'bg-green-500' },
-                    { icon: '🍎', label: 'iOS',     pct: pwaStats.iosPct,     count: pwaStats.ios,     color: 'bg-gray-400'  },
-                  ].map(({ icon, label, pct, count, color }) => (
-                    <div key={label}>
-                      <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-sm font-medium text-gray-700">{icon} {label}</span>
-                        <span className="text-sm font-bold text-gray-900">{pct}% <span className="text-xs text-gray-400">({fmtNum(count)})</span></span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div className={`${color} h-2.5 rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* B4 — Graphique installations par jour (30 jours) */}
-            {pwaStats.dailyInstalls.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  📅 Installations par jour (30 derniers jours)
-                </p>
-                <div className="flex items-end gap-1 h-20">
-                  {(() => {
-                    const maxInst = Math.max(...pwaStats.dailyInstalls.map(d => d.cnt), 1)
-                    return pwaStats.dailyInstalls.map(({ day, cnt }, i) => {
-                      const h = Math.max((cnt / maxInst) * 60, cnt > 0 ? 4 : 0)
-                      return (
-                        <div key={i} className="relative flex flex-col items-center gap-0.5 flex-1 min-w-[16px] group">
-                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] rounded-lg px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 z-10 pointer-events-none">
-                            {cnt} install{cnt > 1 ? 's' : ''}
-                          </div>
-                          <div className="w-full bg-green-400 rounded-t-sm transition-all duration-500" style={{ height: `${h}px` }} />
-                          <span className="text-[8px] text-gray-400">{day}</span>
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* ── E2 : Qualité des fiches — Médecins incomplets ─────────────────────── */}
-        {incompleteDocs && (
-          <div className="bg-white rounded-2xl border border-rose-100 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-                <span>⚠️</span> Qualité des Fiches
-              </h2>
-              <a
-                href="/admin/404"
-                className="text-xs text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full font-medium hover:bg-rose-100 transition"
-              >
-                Corriger → Admin
-              </a>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { icon: '📵', label: 'Sans Téléphone', data: incompleteDocs.noPhone,   bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700',    dot: 'bg-red-500',    numColor: 'text-red-600'    },
-                { icon: '📍', label: 'Sans Adresse',   data: incompleteDocs.noAddress, bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400', numColor: 'text-orange-600' },
-                { icon: '🗺️', label: 'Sans GPS',       data: incompleteDocs.noGPS,     bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400', numColor: 'text-yellow-600' },
-              ].map(({ icon, label, data, bg, border, badge, dot, numColor }) => (
-                <div key={label} className={`rounded-xl border p-4 ${bg} ${border}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span>{icon}</span>
-                      <p className="font-semibold text-gray-800 text-sm">{label}</p>
-                    </div>
-                    <span className={`text-2xl font-extrabold ${numColor}`}>{data.length}{data.length >= 100 ? '+' : ''}</span>
-                  </div>
-                  {data.length === 0 ? (
-                    <p className="text-xs text-green-600 font-medium">✅ Aucun médecin incomplet</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {data.slice(0, 3).map(d => (
-                        <div key={d.id} className="flex items-center gap-1.5">
-                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
-                          <a
-                            href={`/docteur/${d.slug}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-gray-700 hover:text-blue-600 hover:underline truncate"
-                          >
-                            {d.name_fr}
-                          </a>
-                        </div>
-                      ))}
-                      {data.length > 3 && (
-                        <a href="/admin/404" className={`text-xs font-semibold px-2 py-0.5 rounded-md inline-block mt-1 ${badge}`}>
-                          + {data.length - 3} de plus →
-                        </a>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
 
-        {/* SUGGESTIONS D'AMÉLIORATION DU DASHBOARD */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-md">
-          <div className="flex items-start gap-4">
-            <span className="text-3xl">💡</span>
-            <div>
-              <h3 className="font-bold text-lg">Suggestions pour aller plus loin avec votre Dashboard :</h3>
-              <ul className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-100">
-                <li className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                  <b className="text-white block mb-1">🗺 Top 5 Wilayas & Spécialités</b>
-                  Découvrez instantanément quelles régions et quels types de médecins génèrent le plus d'activité.
-                </li>
-                <li className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                  <b className="text-white block mb-1">📥 Export CSV / Excel</b>
-                  Téléchargez la liste filtrée des statistiques en un clic pour vos rapports personnels.
-                </li>
-                <li className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                  <b className="text-white block mb-1">🤖 Détecteur de Bots (Spider)</b>
-                  Filtrez les faux clics générés par les robots d'indexation pour des données 100% réelles.
-                </li>
-              </ul>
-            </div>
+      {/* Widget PWA & Adoption Mobile */}
+      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+            <Smartphone className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider">Application PWA Installée</h4>
+            <p className="text-xs text-slate-400">
+              <strong className="text-white">{stats.pwaStats.standaloneToday} ouvertures</strong> en mode application autonome aujourd'hui
+            </p>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          {/* Table header */}
-          <div className="p-5 border-b border-gray-50 flex items-center gap-3 flex-wrap justify-between">
-            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-              <span className="text-blue-600">🏥</span>
-              Par médecin
-              {rows.length > 0 && (
-                <span className="text-sm font-normal text-gray-400 ml-1">({rows.length} médecins)</span>
+        <div className="flex items-center gap-4 text-xs">
+          <span className="text-slate-400">
+            Plateformes : <strong className="text-slate-200">{stats.pwaStats.android} Android</strong> / <strong className="text-slate-200">{stats.pwaStats.ios} iOS</strong>
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 💎 VUE 2 : VALEUR & ROI MÉDECINS (HISTORIQUE CUMULÉ TOTAL)
+// ══════════════════════════════════════════════════════════════════════════════
+function ViewRoi() {
+  const [loading, setLoading] = useState(true)
+  const [doctors, setDoctors] = useState([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [totals, setTotals] = useState({ views: 0, calls: 0, whatsapp: 0, maps: 0 })
+
+  // Filtres & Pagination
+  const [search, setSearch] = useState('')
+  const [selectedWilaya, setSelectedWilaya] = useState('')
+  const [selectedSpecialty, setSelectedSpecialty] = useState('')
+  const [sortBy, setSortBy] = useState('count_calls') // 'count_calls' | 'count_views' | 'count_whatsapp'
+  const [page, setPage] = useState(0)
+  const pageSize = 20
+
+  // Référentiels pour les listes déroulantes
+  const [wilayasList, setWilayasList] = useState([])
+  const [specialtiesList, setSpecialtiesList] = useState([])
+
+  // Charger les référentiels une fois
+  useEffect(() => {
+    async function loadRefs() {
+      const [{ data: w }, { data: s }] = await Promise.all([
+        supabase.from('wilayas').select('id, name_fr').order('name_fr'),
+        supabase.from('specialties').select('id, name_fr').order('name_fr'),
+      ])
+      setWilayasList(w || [])
+      setSpecialtiesList(s || [])
+    }
+    loadRefs()
+  }, [])
+
+  // Charger les totaux généraux historiques une fois
+  useEffect(() => {
+    async function loadGrandTotals() {
+      // Lit les agrégats depuis la table doctors pour les actifs ayant au moins une action
+      const { data } = await supabase
+        .from('doctors')
+        .select('count_views, count_calls, count_whatsapp, count_maps')
+        .or('count_views.gt.0,count_calls.gt.0,count_whatsapp.gt.0,count_maps.gt.0')
+
+      if (data) {
+        const sum = data.reduce(
+          (acc, d) => ({
+            views: acc.views + (d.count_views || 0),
+            calls: acc.calls + (d.count_calls || 0),
+            whatsapp: acc.whatsapp + (d.count_whatsapp || 0),
+            maps: acc.maps + (d.count_maps || 0),
+          }),
+          { views: 0, calls: 0, whatsapp: 0, maps: 0 }
+        )
+        setTotals(sum)
+      }
+    }
+    loadGrandTotals()
+  }, [])
+
+  // Charger les médecins paginés avec filtres
+  const fetchDoctors = useCallback(async () => {
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('doctors')
+        .select(
+          'id, name_fr, slug, phone, count_views, count_calls, count_whatsapp, count_maps, specialties(name_fr), wilayas(name_fr)',
+          { count: 'exact' }
+        )
+        .eq('is_active', true)
+
+      if (search.trim()) {
+        query = query.ilike('name_fr', `%${search.trim()}%`)
+      }
+      if (selectedWilaya) {
+        query = query.eq('wilaya_id', selectedWilaya)
+      }
+      if (selectedSpecialty) {
+        query = query.eq('specialty_id', selectedSpecialty)
+      }
+
+      query = query
+        .order(sortBy, { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1)
+
+      const { data, count, error } = await query
+
+      if (error) throw error
+      setDoctors(data || [])
+      setTotalCount(count || 0)
+    } catch (err) {
+      console.error('Erreur chargement ROI:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [search, selectedWilaya, selectedSpecialty, sortBy, page])
+
+  useEffect(() => {
+    fetchDoctors()
+  }, [fetchDoctors])
+
+  // Export CSV
+  const handleExportCsv = () => {
+    if (doctors.length === 0) return
+    const headers = ['ID', 'Nom Médecin', 'Spécialité', 'Wilaya', 'Téléphone', 'Vues Totales', 'Appels Générés', 'WhatsApp', 'Taux Contact']
+    const rows = doctors.map((d) => [
+      d.id,
+      `"${(d.name_fr || '').replace(/"/g, '""')}"`,
+      `"${(d.specialties?.name_fr || '').replace(/"/g, '""')}"`,
+      `"${(d.wilayas?.name_fr || '').replace(/"/g, '""')}"`,
+      `"${d.phone || ''}"`,
+      d.count_views || 0,
+      d.count_calls || 0,
+      d.count_whatsapp || 0,
+      `"${calcConvRate(d.count_calls, d.count_whatsapp, d.count_views)}"`,
+    ])
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', `dalil_atibaa_roi_medecins_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const totalPages = Math.ceil(totalCount / pageSize)
+
+  return (
+    <div className="space-y-6">
+      {/* KPIs Historiques Globaux */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="mb-4">
+          <h2 className="text-base font-bold text-white">Impact & Valeur Commerciale Cumulée</h2>
+          <p className="text-xs text-slate-400">Total des contacts et opportunités apportés aux praticiens depuis la création</p>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Appels Délivrés</p>
+            <p className="text-2xl lg:text-3xl font-bold text-emerald-400 mt-1">📞 {fmt(totals.calls)}</p>
+            <p className="text-[11px] text-slate-500 mt-1">Mises en relation téléphoniques directes</p>
+          </div>
+
+          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">WhatsApp Délivrés</p>
+            <p className="text-2xl lg:text-3xl font-bold text-emerald-400 mt-1">💬 {fmt(totals.whatsapp)}</p>
+            <p className="text-[11px] text-slate-500 mt-1">Échanges WhatsApp patients initiés</p>
+          </div>
+
+          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Consultations Fiches</p>
+            <p className="text-2xl lg:text-3xl font-bold text-blue-400 mt-1">👁 {fmt(totals.views)}</p>
+            <p className="text-[11px] text-slate-500 mt-1">Vues de profils de praticiens</p>
+          </div>
+
+          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Taux de Contact Moyen</p>
+            <p className="text-2xl lg:text-3xl font-bold text-purple-400 mt-1">
+              🎯 {calcConvRate(totals.calls, totals.whatsapp, totals.views)}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-1">Proportion de visiteurs qui contactent</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Barre de Recherche et Filtres */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Recherche par nom */}
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(0)
+              }}
+              placeholder="Rechercher un médecin par nom..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* Filtre Wilaya */}
+          <select
+            value={selectedWilaya}
+            onChange={(e) => {
+              setSelectedWilaya(e.target.value)
+              setPage(0)
+            }}
+            className="bg-slate-950 border border-slate-800 text-xs sm:text-sm text-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500"
+          >
+            <option value="">Toutes les Wilayas</option>
+            {wilayasList.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name_fr}
+              </option>
+            ))}
+          </select>
+
+          {/* Filtre Spécialité */}
+          <select
+            value={selectedSpecialty}
+            onChange={(e) => {
+              setSelectedSpecialty(e.target.value)
+              setPage(0)
+            }}
+            className="bg-slate-950 border border-slate-800 text-xs sm:text-sm text-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500"
+          >
+            <option value="">Toutes les Spécialités</option>
+            {specialtiesList.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name_fr}
+              </option>
+            ))}
+          </select>
+
+          {/* Tri */}
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value)
+              setPage(0)
+            }}
+            className="bg-slate-950 border border-slate-800 text-xs sm:text-sm text-blue-400 font-medium rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500"
+          >
+            <option value="count_calls">Trier par Appels ↓</option>
+            <option value="count_whatsapp">Trier par WhatsApp ↓</option>
+            <option value="count_views">Trier par Vues ↓</option>
+          </select>
+
+          {/* Bouton Export CSV */}
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-400 px-1 pt-1">
+          <span>{totalCount.toLocaleString('fr-FR')} praticiens trouvés</span>
+          {loading && <span className="text-blue-400 flex items-center gap-1">Chargement en cours...</span>}
+        </div>
+      </div>
+
+      {/* Tableau des Médecins */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs sm:text-sm">
+            <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 text-[11px] uppercase tracking-wider font-semibold">
+              <tr>
+                <th className="py-3 px-4">Médecin</th>
+                <th className="py-3 px-4">Spécialité & Wilaya</th>
+                <th className="py-3 px-4 text-center">Téléphone</th>
+                <th className="py-3 px-4 text-right">Vues</th>
+                <th className="py-3 px-4 text-right">Appels</th>
+                <th className="py-3 px-4 text-right">WhatsApp</th>
+                <th className="py-3 px-4 text-right">Taux Contact</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {doctors.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                    Aucun médecin ne correspond aux critères sélectionnés.
+                  </td>
+                </tr>
+              ) : (
+                doctors.map((doc) => {
+                  const rate = calcConvRate(doc.count_calls, doc.count_whatsapp, doc.count_views)
+
+                  return (
+                    <tr key={doc.id} className="hover:bg-slate-800/40 transition">
+                      <td className="py-3.5 px-4 font-medium text-white">
+                        <Link
+                          href={`/docteur/${doc.slug || doc.id}`}
+                          target="_blank"
+                          className="hover:text-blue-400 inline-flex items-center gap-1.5 transition"
+                        >
+                          <span>{doc.name_fr}</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 text-slate-500" />
+                        </Link>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-300">
+                        <span>{doc.specialties?.name_fr || 'Médecin'}</span>
+                        <span className="text-slate-500 mx-1.5">•</span>
+                        <span className="text-slate-400">{doc.wilayas?.name_fr || 'Algérie'}</span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-300">
+                        {doc.phone ? (
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{doc.phone}</span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-semibold text-slate-300">
+                        {fmt(doc.count_views)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+                          📞 {fmt(doc.count_calls)}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium">
+                          💬 {fmt(doc.count_whatsapp)}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-semibold text-purple-400">
+                        {rate}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
-            </h2>
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Page size selector */}
-              <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                <span>Afficher</span>
-                <select
-                  value={pageSize}
-                  onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                  className="border border-gray-200 rounded-xl text-sm px-2 py-1.5 focus:outline-none focus:border-blue-400 text-gray-700 font-medium"
-                >
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                </select>
-              </div>
+            </tbody>
+          </table>
+        </div>
 
-              {/* Search */}
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Rechercher..."
-                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 w-48"
-                />
-              </div>
-              {/* Sort */}
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                className="border border-gray-200 rounded-xl text-sm px-3 py-2 focus:outline-none focus:border-blue-400 text-gray-700"
-              >
-                <option value="views">↓ Visites</option>
-                <option value="calls">↓ Appels</option>
-                <option value="whatsapp">↓ WhatsApp</option>
-                <option value="maps">↓ Carte</option>
-              </select>
-
-              {/* Export CSV Button */}
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <span>
+              Page <strong className="text-white">{page + 1}</strong> sur <strong className="text-white">{totalPages}</strong>
+            </span>
+            <div className="flex items-center gap-2">
               <button
-                onClick={exportCsv}
-                disabled={rows.length === 0}
-                style={{ backgroundColor: '#1E293B' }}
-                className="flex items-center gap-1.5 hover:opacity-90 text-white text-sm px-3.5 py-2 rounded-xl font-medium transition disabled:opacity-50 disabled:pointer-events-none"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="p-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 rounded-lg border border-slate-800 transition"
               >
-                <span>📥</span> Export CSV
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="p-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 rounded-lg border border-slate-800 transition"
+              >
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
-          {loading ? (
-            <div className="flex items-center justify-center py-20 text-gray-400 gap-3">
-              <svg className="w-5 h-5 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-              Chargement des données...
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="text-center py-20 text-gray-400">
-              <p className="text-4xl mb-3">📭</p>
-              <p className="font-medium">Aucune donnée pour cette période</p>
-              <p className="text-sm mt-1">Les visites s'enregistreront automatiquement</p>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                      <th className="text-left px-5 py-3 font-semibold">#</th>
-                      <th className="text-left px-3 py-3 font-semibold">Médecin</th>
-                      <th className="text-left px-3 py-3 font-semibold hidden md:table-cell">Spécialité</th>
-                      <th className="text-left px-3 py-3 font-semibold hidden lg:table-cell">Wilaya</th>
-                      <th className="text-right px-3 py-3 font-semibold">
-                        <button onClick={() => setSortBy('views')} className={`hover:text-blue-600 transition ${sortBy === 'views' ? 'text-blue-600' : ''}`}>
-                          👁 Vues
-                        </button>
-                      </th>
-                      <th className="text-right px-3 py-3 font-semibold">
-                        <button onClick={() => setSortBy('calls')} className={`hover:text-green-600 transition ${sortBy === 'calls' ? 'text-green-600' : ''}`}>
-                          📞 Appels
-                        </button>
-                      </th>
-                      <th className="text-right px-3 py-3 font-semibold hidden sm:table-cell">
-                        <button onClick={() => setSortBy('whatsapp')} className={`hover:text-emerald-600 transition ${sortBy === 'whatsapp' ? 'text-emerald-600' : ''}`}>
-                          💬 WA
-                        </button>
-                      </th>
-                      <th className="text-right px-3 py-3 font-semibold hidden sm:table-cell">
-                        <button onClick={() => setSortBy('maps')} className={`hover:text-orange-600 transition ${sortBy === 'maps' ? 'text-orange-600' : ''}`}>
-                          🗺 Carte
-                        </button>
-                      </th>
-                      <th className="text-right px-5 py-3 font-semibold">Taux</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {paginatedRows.map((r, i) => {
-                      const rankIndex = (currentPage - 1) * pageSize + i + 1;
-                      return (
-                        <tr key={r.id} className="hover:bg-blue-50/40 transition group">
-                          <td className="px-5 py-4 text-sm text-gray-400 font-medium">{rankIndex}</td>
-                          <td className="px-3 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                                {r.name.charAt(0)}
-                              </div>
-                              <div className="min-w-0">
-                                <a
-                                  href={`/docteur/${r.slug}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition truncate block max-w-[160px]"
-                                >
-                                  {r.name}
-                                </a>
-                                <p className="text-xs text-gray-400 md:hidden">{r.specialty}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-4 hidden md:table-cell">
-                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-100 font-medium">
-                              {r.specialty}
-                            </span>
-                          </td>
-                          <td className="px-3 py-4 text-sm text-gray-500 hidden lg:table-cell">{r.wilaya}</td>
-                          <td className="px-3 py-4 text-right">
-                            <div className="flex flex-col items-end">
-                              <span className={`font-bold text-sm ${sortBy === 'views' ? 'text-blue-600' : 'text-gray-800'}`}>
-                                {fmtNum(r.views)}
-                              </span>
-                              <span className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded-sm mt-0.5" title="Total cumulé historique">
-                                Cumul: {fmtNum(r.globalViews)}
-                              </span>
-                            </div>
-                            <MiniBar value={r.views} max={maxViews} color="bg-blue-400" />
-                          </td>
-                          <td className="px-3 py-4 text-right">
-                            <span className={`font-bold text-sm ${sortBy === 'calls' ? 'text-green-600' : 'text-gray-800'}`}>
-                              {fmtNum(r.calls)}
-                            </span>
-                            <MiniBar value={r.calls} max={maxCalls} color="bg-green-400" />
-                          </td>
-                          <td className="px-3 py-4 text-right text-sm font-semibold text-gray-700 hidden sm:table-cell">
-                            {fmtNum(r.whatsapp)}
-                          </td>
-                          <td className="px-3 py-4 text-right text-sm font-semibold text-gray-700 hidden sm:table-cell">
-                            {fmtNum(r.maps)}
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <span className={`text-sm font-bold px-2 py-0.5 rounded-lg ${
-                              Number(convRate(r.views, r.calls).replace('%','')) >= 20
-                                ? 'bg-green-100 text-green-700'
-                                : Number(convRate(r.views, r.calls).replace('%','')) >= 10
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-gray-100 text-gray-500'
-                            }`}>
-                              {convRate(r.views, r.calls)}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+// ══════════════════════════════════════════════════════════════════════════════
+// 🎯 VUE 3 : OPPORTUNITÉS & RECHERCHES (LE RADAR DES MANQUES)
+// ══════════════════════════════════════════════════════════════════════════════
+function ViewOpportunities() {
+  const [loading, setLoading] = useState(true)
+  const [searchStats, setSearchStats] = useState([])
+  const [specialtiesMap, setSpecialtiesMap] = useState({})
+  const [wilayasMap, setWilayasMap] = useState({})
 
-              {/* PAGINATION NAVIGATION */}
-              {totalPages > 1 && (
-                <div className="p-5 border-t border-gray-50 flex items-center justify-between flex-wrap gap-3 bg-gray-50/50">
-                  <span className="text-sm text-gray-500">
-                    Affichage de <b>{(currentPage - 1) * pageSize + 1}</b> à <b>{Math.min(currentPage * pageSize, rows.length)}</b> sur <b>{rows.length}</b> médecins
-                  </span>
-                  
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                      ← Précédent
-                    </button>
-                    
-                    {Array.from({ length: totalPages }, (_, idx) => idx + 1)
-                      .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                      .map((p, i, arr) => {
-                        const showEllipsis = i > 0 && p - arr[i - 1] > 1;
-                        return (
-                          <div key={p} className="flex items-center gap-1">
-                            {showEllipsis && <span className="text-gray-400 text-sm px-1">...</span>}
-                            <button
-                              onClick={() => setCurrentPage(p)}
-                              className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${
-                                currentPage === p
-                                  ? 'bg-blue-600 text-white shadow-sm'
-                                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                              }`}
-                            >
-                              {p}
-                            </button>
-                          </div>
-                        )
-                      })}
+  const fetchSearchStats = useCallback(async () => {
+    setLoading(true)
+    try {
+      // Charger les référentiels
+      const [{ data: s }, { data: w }, { data: searches }] = await Promise.all([
+        supabase.from('specialties').select('id, name_fr'),
+        supabase.from('wilayas').select('id, name_fr'),
+        supabase
+          .from('search_stats')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1500),
+      ])
 
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                      Suivant →
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+      const sMap = {}
+      s?.forEach((item) => { sMap[item.id] = item.name_fr })
+      const wMap = {}
+      w?.forEach((item) => { wMap[item.id] = item.name_fr })
+
+      setSpecialtiesMap(sMap)
+      setWilayasMap(wMap)
+      setSearchStats(searches || [])
+    } catch (err) {
+      console.error('Erreur chargement recherches:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchSearchStats()
+  }, [fetchSearchStats])
+
+  // Analyses dérivées des recherches
+  const analysis = useMemo(() => {
+    let total = searchStats.length
+    let zeroResults = 0
+    let gpsCount = 0
+
+    const zeroMap = {}
+    const specialtyFreq = {}
+    const wilayaFreq = {}
+
+    searchStats.forEach((r) => {
+      if (r.gps_used) gpsCount++
+
+      if (r.results_count === 0) {
+        zeroResults++
+        // Clé d'identification du manque
+        const specName = r.specialty_id ? specialtiesMap[r.specialty_id] : null
+        const wilayaName = r.wilaya_id ? wilayasMap[r.wilaya_id] : null
+        const term = r.query?.trim() || ''
+
+        let label = ''
+        if (term) label = `"${term}"`
+        if (specName) label = label ? `${label} (${specName})` : specName
+        if (wilayaName) label = label ? `${label} à ${wilayaName}` : `Wilaya: ${wilayaName}`
+
+        if (!label) label = 'Recherche sans filtre'
+
+        if (!zeroMap[label]) {
+          zeroMap[label] = { label, count: 0, lastDate: r.created_at }
+        }
+        zeroMap[label].count++
+      }
+
+      if (r.specialty_id && specialtiesMap[r.specialty_id]) {
+        const sName = specialtiesMap[r.specialty_id]
+        specialtyFreq[sName] = (specialtyFreq[sName] || 0) + 1
+      }
+
+      if (r.wilaya_id && wilayasMap[r.wilaya_id]) {
+        const wName = wilayasMap[r.wilaya_id]
+        wilayaFreq[wName] = (wilayaFreq[wName] || 0) + 1
+      }
+    })
+
+    const topZeros = Object.values(zeroMap).sort((a, b) => b.count - a.count)
+    const topSpecialties = Object.entries(specialtyFreq)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+    const topWilayas = Object.entries(wilayaFreq)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+
+    return {
+      total,
+      zeroResults,
+      gpsPercent: total > 0 ? Math.round((gpsCount / total) * 100) : 0,
+      topZeros,
+      topSpecialties,
+      topWilayas,
+    }
+  }, [searchStats, specialtiesMap, wilayasMap])
+
+  return (
+    <div className="space-y-6">
+      {/* Introduction Opportunités */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+        <div>
+          <h2 className="text-sm font-bold text-white flex items-center gap-2">
+            <Compass className="w-4 h-4 text-blue-400" />
+            <span>Radar des Recherches & Besoins Non Couverts</span>
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Comprenez ce que les patients recherchent pour orienter l'import et le référencement de nouveaux médecins
+          </p>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-gray-400 pb-4">
-          Dalil Atibaa — Dashboard Statistiques · Données en temps réel
-        </p>
+        <button
+          onClick={fetchSearchStats}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition border border-slate-700 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-400' : ''}`} />
+          <span>Rafraîchir</span>
+        </button>
+      </div>
+
+      {/* Cartes KPI Demande */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          icon={Search}
+          label="Total Recherches Analysées"
+          value={fmt(analysis.total)}
+          subtext="Volume de requêtes utilisateurs"
+          color="blue"
+        />
+        <StatCard
+          icon={AlertCircle}
+          label="Recherches Sans Résultat"
+          value={fmt(analysis.zeroResults)}
+          subtext="Besoins de patients non satisfaits"
+          color="amber"
+        />
+        <StatCard
+          icon={MapPin}
+          label="Part Recherche GPS"
+          value={`${analysis.gpsPercent}%`}
+          subtext="Recherches 'Autour de moi'"
+          color="emerald"
+        />
+      </div>
+
+      {/* Section Prioritaire : Le Radar des Manques (0 résultat) */}
+      <div className="bg-slate-900 border border-amber-500/20 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Le Radar des Manques (0 Résultat Trouvé)</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Ces requêtes ont renvoyé 0 médecin. Ce sont vos opportunités d'enrichissement prioritaires.</p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            {analysis.topZeros.length} manques identifiés
+          </span>
+        </div>
+
+        {analysis.topZeros.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 text-xs">
+            🎉 Aucune recherche infructueuse enregistrée récemment !
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 text-[11px] uppercase font-semibold">
+                <tr>
+                  <th className="py-2.5 px-3">Recherche Non Comblée</th>
+                  <th className="py-2.5 px-3 text-center">Nombre de Demandes</th>
+                  <th className="py-2.5 px-3 text-right">Dernière Tentative</th>
+                  <th className="py-2.5 px-3 text-right">Action Suggérée</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {analysis.topZeros.slice(0, 15).map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-800/40 transition">
+                    <td className="py-3 px-3 font-semibold text-white">
+                      {item.label}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                        {item.count} fois
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-400 text-xs font-mono">
+                      {item.lastDate ? new Date(item.lastDate).toLocaleDateString('fr-FR') : '—'}
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <span className="text-[11px] text-blue-400 font-medium hover:underline cursor-pointer">
+                        Ajouter praticiens →
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Top Spécialités et Top Wilayas Demandées */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Spécialités */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Layers className="w-4 h-4 text-blue-400" />
+            <h3 className="text-sm font-bold text-white">Spécialités les Plus Recherchées</h3>
+          </div>
+
+          <div className="space-y-3">
+            {analysis.topSpecialties.map((item, idx) => {
+              const maxVal = analysis.topSpecialties[0]?.count || 1
+              const pct = Math.round((item.count / maxVal) * 100)
+
+              return (
+                <div key={idx}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-200 font-medium">{item.name}</span>
+                    <span className="text-slate-400 font-bold">{item.count} recherches</span>
+                  </div>
+                  <div className="w-full bg-slate-800 rounded-full h-2">
+                    <div className="bg-blue-500 h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Top Wilayas */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <MapPin className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-sm font-bold text-white">Wilayas les Plus Actives en Recherche</h3>
+          </div>
+
+          <div className="space-y-3">
+            {analysis.topWilayas.map((item, idx) => {
+              const maxVal = analysis.topWilayas[0]?.count || 1
+              const pct = Math.round((item.count / maxVal) * 100)
+
+              return (
+                <div key={idx}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-200 font-medium">{item.name}</span>
+                    <span className="text-slate-400 font-bold">{item.count} recherches</span>
+                  </div>
+                  <div className="w-full bg-slate-800 rounded-full h-2">
+                    <div className="bg-emerald-500 h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
