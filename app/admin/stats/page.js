@@ -322,6 +322,28 @@ function ViewDirect() {
     topDoctorsToday: [],
     pwaStats: { standaloneToday: 0, totalRecent: 0, android: 0, ios: 0 },
   })
+  // Santé du catalogue — chargé une seule fois indépendamment
+  const [catalogHealth, setCatalogHealth] = useState(null)
+
+  // Charger la santé du catalogue (requête légère agrégée)
+  useEffect(() => {
+    async function fetchCatalogHealth() {
+      // 4 requêtes COUNT ciblées — très rapides
+      const [noPhone, noAddress, noGps, total] = await Promise.all([
+        supabase.from('doctors').select('id', { count: 'exact', head: true }).eq('is_active', true).is('phone', null),
+        supabase.from('doctors').select('id', { count: 'exact', head: true }).eq('is_active', true).is('address', null),
+        supabase.from('doctors').select('id', { count: 'exact', head: true }).eq('is_active', true).is('google_map_url', null),
+        supabase.from('doctors').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      ])
+      setCatalogHealth({
+        noPhone:   noPhone.count   || 0,
+        noAddress: noAddress.count || 0,
+        noGps:     noGps.count     || 0,
+        total:     total.count     || 0,
+      })
+    }
+    fetchCatalogHealth()
+  }, [])
 
   const fetchDirectData = useCallback(async () => {
     setLoading(true)
@@ -640,6 +662,103 @@ function ViewDirect() {
           </span>
         </div>
       </div>
+
+      {/* Widget Santé du Catalogue — données clés qualité */}
+      {catalogHealth && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Santé du Catalogue</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {catalogHealth.total.toLocaleString('fr-FR')} médecins actifs — données manquantes qui bloquent les contacts
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Sans téléphone */}
+            <div className={`p-4 rounded-xl border flex items-center gap-4 ${
+              catalogHealth.noPhone > 0
+                ? 'bg-rose-500/5 border-rose-500/20'
+                : 'bg-emerald-500/5 border-emerald-500/20'
+            }`}>
+              <div className={`text-2xl font-bold ${catalogHealth.noPhone > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {catalogHealth.noPhone > 0 ? '⚠️' : '✅'}
+              </div>
+              <div>
+                <p className={`text-xl font-bold ${catalogHealth.noPhone > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                  {catalogHealth.noPhone.toLocaleString('fr-FR')}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Sans téléphone</p>
+                <p className="text-[11px] text-slate-500">
+                  {catalogHealth.total > 0
+                    ? `${Math.round((catalogHealth.noPhone / catalogHealth.total) * 100)}% du catalogue`
+                    : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* Sans adresse */}
+            <div className={`p-4 rounded-xl border flex items-center gap-4 ${
+              catalogHealth.noAddress > 0
+                ? 'bg-amber-500/5 border-amber-500/20'
+                : 'bg-emerald-500/5 border-emerald-500/20'
+            }`}>
+              <div className={`text-2xl font-bold ${catalogHealth.noAddress > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {catalogHealth.noAddress > 0 ? '⚠️' : '✅'}
+              </div>
+              <div>
+                <p className={`text-xl font-bold ${catalogHealth.noAddress > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                  {catalogHealth.noAddress.toLocaleString('fr-FR')}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Sans adresse</p>
+                <p className="text-[11px] text-slate-500">
+                  {catalogHealth.total > 0
+                    ? `${Math.round((catalogHealth.noAddress / catalogHealth.total) * 100)}% du catalogue`
+                    : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* Sans GPS */}
+            <div className={`p-4 rounded-xl border flex items-center gap-4 ${
+              catalogHealth.noGps > 0
+                ? 'bg-slate-700/30 border-slate-700'
+                : 'bg-emerald-500/5 border-emerald-500/20'
+            }`}>
+              <div className={`text-2xl font-bold ${catalogHealth.noGps > 0 ? 'text-slate-400' : 'text-emerald-400'}`}>
+                {catalogHealth.noGps > 0 ? '📍' : '✅'}
+              </div>
+              <div>
+                <p className={`text-xl font-bold ${catalogHealth.noGps > 0 ? 'text-slate-300' : 'text-emerald-300'}`}>
+                  {catalogHealth.noGps.toLocaleString('fr-FR')}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Sans coordonnées GPS</p>
+                <p className="text-[11px] text-slate-500">
+                  {catalogHealth.total > 0
+                    ? `${Math.round((catalogHealth.noGps / catalogHealth.total) * 100)}% du catalogue`
+                    : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {catalogHealth.noPhone > 0 && (
+            <p className="text-[11px] text-rose-400/70 mt-3 flex items-center gap-1">
+              <span>⚡</span>
+              <span>
+                Priorité absolue : les {catalogHealth.noPhone} médecins sans téléphone génèrent 0 appel quelle que soit leur popularité.
+                Filtrez par <strong>"Appels = 0"</strong> dans Vue 2 pour les identifier.
+              </span>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -664,6 +783,8 @@ function ViewRoi() {
   // Référentiels pour les listes déroulantes
   const [wilayasList, setWilayasList] = useState([])
   const [specialtiesList, setSpecialtiesList] = useState([])
+  // Médecins fantômes : actifs + vues > 30 mais 0 contact
+  const [ghostDoctors, setGhostDoctors] = useState(null)
 
   // Charger les référentiels une fois
   useEffect(() => {
@@ -676,6 +797,23 @@ function ViewRoi() {
       setSpecialtiesList(s || [])
     }
     loadRefs()
+  }, [])
+
+  // Charger les médecins fantômes une seule fois
+  useEffect(() => {
+    async function fetchGhostDoctors() {
+      const { data } = await supabase
+        .from('doctors')
+        .select('id, name_fr, slug, phone, count_views, count_calls, count_whatsapp, specialties(name_fr), wilayas(name_fr)')
+        .eq('is_active', true)
+        .eq('count_calls', 0)
+        .eq('count_whatsapp', 0)
+        .gt('count_views', 30)
+        .order('count_views', { ascending: false })
+        .limit(10)
+      setGhostDoctors(data || [])
+    }
+    fetchGhostDoctors()
   }, [])
 
   // Charger les totaux généraux historiques une fois
@@ -810,6 +948,82 @@ function ViewRoi() {
           </div>
         </div>
       </div>
+
+      {/* Section Médecins Fantômes — conversion perdue */}
+      {ghostDoctors !== null && ghostDoctors.length > 0 && (
+        <div className="bg-slate-900 border border-rose-500/20 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-lg">
+                👻
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Médecins Fantômes — Conversion Perdue</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Actifs, vus, mais jamais contactés — très probablement sans numéro de téléphone
+                </p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              {ghostDoctors.length} praticien{ghostDoctors.length > 1 ? 's' : ''} identifié{ghostDoctors.length > 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 text-[11px] uppercase font-semibold">
+                <tr>
+                  <th className="py-2.5 px-3">Médecin</th>
+                  <th className="py-2.5 px-3">Spécialité & Wilaya</th>
+                  <th className="py-2.5 px-3 text-center">Vues Totales</th>
+                  <th className="py-2.5 px-3 text-center">Appels</th>
+                  <th className="py-2.5 px-3 text-center">Téléphone</th>
+                  <th className="py-2.5 px-3 text-right">Problème Détecté</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {ghostDoctors.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-slate-800/40 transition">
+                    <td className="py-3 px-3 font-medium text-white">
+                      <Link
+                        href={`/docteur/${doc.slug || doc.id}`}
+                        target="_blank"
+                        className="hover:text-blue-400 inline-flex items-center gap-1 transition"
+                      >
+                        <span>{doc.name_fr}</span>
+                        <ArrowUpRight className="w-3 h-3 text-slate-500" />
+                      </Link>
+                    </td>
+                    <td className="py-3 px-3 text-slate-300 text-xs">
+                      {doc.specialties?.name_fr || 'Médecin'}
+                      <span className="text-slate-500 mx-1">•</span>
+                      {doc.wilayas?.name_fr || '—'}
+                    </td>
+                    <td className="py-3 px-3 text-center font-bold text-blue-400">
+                      {(doc.count_views || 0).toLocaleString('fr-FR')}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                        0
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {doc.phone ? (
+                        <span className="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-400 font-mono">{doc.phone}</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-xs bg-rose-500/10 text-rose-400 font-semibold">Manquant ⚠️</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-right text-[11px] text-amber-400/80 font-medium">
+                      {!doc.phone ? '→ Ajouter le téléphone' : '→ Vérifier la fiche'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Barre de Recherche et Filtres */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
@@ -1092,6 +1306,24 @@ function ViewOpportunities() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 8)
 
+    // ── Tendance 7 jours vs 7 jours précédents ──────────────────────────────
+    const now7 = new Date()
+    const start7d     = new Date(now7); start7d.setDate(now7.getDate() - 7)
+    const start14d    = new Date(now7); start14d.setDate(now7.getDate() - 14)
+
+    let last7Count = 0
+    let prev7Count = 0
+
+    searchStats.forEach((r) => {
+      const d = new Date(r.created_at)
+      if (d >= start7d)  last7Count++
+      else if (d >= start14d) prev7Count++
+    })
+
+    const trendSearches7d = prev7Count > 0
+      ? Math.round(((last7Count - prev7Count) / prev7Count) * 100)
+      : last7Count > 0 ? 100 : 0
+
     return {
       total,
       zeroResults,
@@ -1099,6 +1331,9 @@ function ViewOpportunities() {
       topZeros,
       topSpecialties,
       topWilayas,
+      last7Count,
+      prev7Count,
+      trendSearches7d,
     }
   }, [searchStats, specialtiesMap, wilayasMap])
 
@@ -1149,6 +1384,45 @@ function ViewOpportunities() {
           subtext="Recherches 'Autour de moi'"
           color="emerald"
         />
+      </div>
+
+      {/* Widget Tendance 7 jours vs semaine précédente */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+            <BarChart2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+              Tendance des Recherches — 7 Jours Glissants
+            </h4>
+            <p className="text-xs text-slate-400 mt-0.5">
+              <strong className="text-white">{analysis.last7Count.toLocaleString('fr-FR')} recherches</strong> les 7 derniers jours
+              {' '}vs{' '}
+              <strong className="text-slate-400">{analysis.prev7Count.toLocaleString('fr-FR')}</strong> la semaine précédente
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold border ${
+              analysis.trendSearches7d > 0
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                : analysis.trendSearches7d < 0
+                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}
+          >
+            {analysis.trendSearches7d > 0
+              ? <TrendingUp className="w-4 h-4" />
+              : analysis.trendSearches7d < 0
+              ? <TrendingDown className="w-4 h-4" />
+              : null}
+            {analysis.trendSearches7d > 0 ? '+' : ''}{analysis.trendSearches7d}%
+          </span>
+          <span className="text-xs text-slate-500">vs semaine précédente</span>
+        </div>
       </div>
 
       {/* Section Prioritaire : Le Radar des Manques (0 résultat) */}
